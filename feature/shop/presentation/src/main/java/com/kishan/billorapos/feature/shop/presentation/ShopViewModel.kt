@@ -1,0 +1,70 @@
+package com.kishan.billorapos.feature.shop.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.kishan.billorapos.core.domain.Result
+import com.kishan.billorapos.core.domain.Shop
+import com.kishan.billorapos.feature.shop.domain.ShopRepository
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+class ShopViewModel(
+    private val shopRepository: ShopRepository
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(ShopState())
+    val state: StateFlow<ShopState> = _state.asStateFlow()
+
+    private val _eventChannel = Channel<ShopEvent>()
+    val events = _eventChannel.receiveAsFlow()
+
+    init {
+        onAction(ShopAction.LoadShop)
+    }
+
+    fun onAction(action: ShopAction) {
+        when (action) {
+            is ShopAction.LoadShop -> {
+                viewModelScope.launch {
+                    _state.update { it.copy(isLoading = true) }
+                    when (val result = shopRepository.getShop()) {
+                        is Result.Success -> {
+                            _state.update { it.copy(shop = result.data, isLoading = false) }
+                        }
+                        is Result.Error -> {
+                            _state.update { it.copy(errorMessage = result.message, isLoading = false) }
+                        }
+                    }
+                }
+            }
+            is ShopAction.SaveShop -> {
+                viewModelScope.launch {
+                    _state.update { it.copy(isLoading = true) }
+                    val updatedShop = Shop(
+                        name = action.name,
+                        addressLine1 = action.addressLine1,
+                        addressLine2 = action.addressLine2,
+                        phoneNumber = action.phoneNumber,
+                        upiId = action.upiId,
+                        footerText = action.footerText
+                    )
+                    when (val result = shopRepository.updateShop(updatedShop)) {
+                        is Result.Success -> {
+                            _eventChannel.send(ShopEvent.ShowSnackbar("Shop details saved!"))
+                            _eventChannel.send(ShopEvent.SaveSuccess)
+                        }
+                        is Result.Error -> {
+                            _eventChannel.send(ShopEvent.ShowSnackbar(result.message ?: "Failed to save details", isError = true))
+                        }
+                    }
+                    _state.update { it.copy(isLoading = false) }
+                }
+            }
+        }
+    }
+}
