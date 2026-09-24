@@ -12,13 +12,6 @@ data class Shop(
     val footerText: String = ""
 ) {
     companion object {
-        val DEFAULT = Shop(
-            name = "Dinesh Shop",
-            addressLine1 = "Samrajpet, Mecheri",
-            addressLine2 = "Salem - 636453",
-            phoneNumber = "+917010674588",
-            upiId = "dineshsowndar@oksbi",
-            footerText = "Thank you, Visit again!!!"
-        )
+        val EMPTY = Shop()
     }
 }

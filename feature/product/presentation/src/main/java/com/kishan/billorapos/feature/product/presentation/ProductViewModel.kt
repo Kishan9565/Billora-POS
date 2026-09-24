@@ -18,6 +18,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.kishan.billorapos.feature.product.domain.ProductCsv
+import com.kishan.billorapos.feature.product.domain.validateProduct
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProductViewModel(
@@ -63,11 +69,30 @@ class ProductViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProductState(isLoading = true))
 
+    suspend fun exportCsv(): String = withContext(Dispatchers.IO) {
+        ProductCsv.export(productRepository.getProducts().first())
+    }
+
     fun onAction(action: ProductAction) {
         val isMutation = action !is ProductAction.OnSearchQueryChange && action !is ProductAction.RetryLoad
         if (isMutation && _isLoading.value) return
         if (isMutation) _isLoading.value = true
         when (action) {
+            is ProductAction.ImportCsv -> {
+                viewModelScope.launch {
+                    try {
+                        val parsed = withContext(Dispatchers.Default) { ProductCsv.parse(action.content) }
+                        when (val result = productRepository.importProducts(parsed.products)) {
+                            is Result.Success -> _eventChannel.send(ProductEvent.ShowSnackbar("${result.data.added} added, ${result.data.updated} updated, ${parsed.skipped} skipped"))
+                            is Result.Error -> _eventChannel.send(ProductEvent.ShowSnackbar(result.message ?: "Import failed", true))
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _eventChannel.send(ProductEvent.ShowSnackbar(e.message ?: "Unable to read CSV", true))
+                    } finally { _isLoading.value = false }
+                }
+            }
             ProductAction.RetryLoad -> reload.value++
             is ProductAction.OnSearchQueryChange -> {
                 _searchQuery.value = action.query
@@ -89,7 +114,7 @@ class ProductViewModel(
             is ProductAction.OnAddProduct -> {
                 viewModelScope.launch {
                     _isLoading.value = true
-                    if (action.name.isBlank() || action.barcode.isBlank() || !action.price.isFinite() || action.price < 0) {
+                    if (!validateProduct(action.name, action.barcode, action.price.toString()).isValid) {
                         _eventChannel.send(ProductEvent.ShowSnackbar("Enter a barcode, name and valid non-negative price", isError = true))
                         _isLoading.value = false
                         return@launch

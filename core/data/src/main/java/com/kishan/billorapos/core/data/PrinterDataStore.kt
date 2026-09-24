@@ -9,6 +9,12 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "printer_settings")
 
+class ShopSetupDataStore(private val context: Context) {
+    private val setupComplete = androidx.datastore.preferences.core.booleanPreferencesKey("shop_setup_complete")
+    val isComplete: Flow<Boolean> = context.dataStore.data.map { it[setupComplete] ?: false }
+    suspend fun complete() { context.dataStore.edit { it[setupComplete] = true } }
+}
+
 class PrinterDataStore(private val context: Context) {
     companion object {
         private val PRINTER_MAC = stringPreferencesKey("printer_mac")

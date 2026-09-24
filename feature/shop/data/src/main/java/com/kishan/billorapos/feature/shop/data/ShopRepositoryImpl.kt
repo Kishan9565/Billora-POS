@@ -7,10 +7,30 @@ import com.kishan.billorapos.core.domain.Result
 import com.kishan.billorapos.core.domain.Shop
 import com.kishan.billorapos.feature.shop.domain.ShopRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 
 class ShopRepositoryImpl(
-    private val shopDao: ShopDao
+    private val shopDao: ShopDao,
+    private val setupStore: com.kishan.billorapos.core.data.ShopSetupDataStore
 ) : ShopRepository {
+
+    override suspend fun isSetupComplete(): Boolean = setupStore.isComplete.first()
+
+    override suspend fun completeSetup(shop: Shop): Result<Unit, DataError.Local> {
+        return try {
+            when (val result = updateShop(shop)) {
+                is Result.Error -> result
+                is Result.Success -> {
+                    setupStore.complete()
+                    Result.Success(Unit)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.Error(DataError.Local.UNKNOWN, "Unable to complete shop setup. Please retry.")
+        }
+    }
 
     override suspend fun getShop(): Result<Shop, DataError.Local> {
         return try {
@@ -18,7 +38,7 @@ class ShopRepositoryImpl(
             if (entity != null) {
                 Result.Success(entity.toDomain())
             } else {
-                Result.Success(Shop.DEFAULT)
+                Result.Success(Shop.EMPTY)
             }
         } catch (e: CancellationException) {
             throw e

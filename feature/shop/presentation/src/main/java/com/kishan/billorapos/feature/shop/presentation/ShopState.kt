@@ -9,6 +9,7 @@ data class ShopState(
 )
 
 sealed interface ShopAction {
+    object SkipSetup : ShopAction
     object LoadShop : ShopAction
     data class SaveShop(
         val name: String,
@@ -16,7 +17,8 @@ sealed interface ShopAction {
         val addressLine2: String,
         val phoneNumber: String,
         val upiId: String,
-        val footerText: String
+        val footerText: String,
+        val completeSetup: Boolean = false
     ) : ShopAction
 }
 

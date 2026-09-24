@@ -16,14 +16,21 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
-        android:label="Billora POS"
+        android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.BilloraPOS" >
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_file_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="Billora POS"
+            android:label="@string/app_name"
             android:theme="@style/Theme.BilloraPOS"
             android:screenOrientation="portrait"
             tools:ignore="LockedOrientationActivity">

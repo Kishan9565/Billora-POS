@@ -27,7 +27,7 @@ sealed interface BillingAction {
 }
 
 sealed interface BillingEvent {
-    data class ShowSnackbar(val message: String, val isError: Boolean = false) : BillingEvent
+    data class ShowSnackbar(val message: String, val isError: Boolean = false, val unknownBarcode: String? = null) : BillingEvent
     object NavigateToCheckout : BillingEvent
     object NavigateToSettings : BillingEvent
 }

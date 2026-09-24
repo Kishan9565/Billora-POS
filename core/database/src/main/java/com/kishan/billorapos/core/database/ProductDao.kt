@@ -24,6 +24,23 @@ interface ProductDao {
         return true
     }
 
+    @Transaction
+    suspend fun importProducts(products: List<ProductEntity>): Pair<Int, Int> {
+        var added = 0
+        var updated = 0
+        for (product in products) {
+            val existing = getByBarcode(product.barcode)
+            if (existing == null) {
+                upsert(product)
+                added++
+            } else {
+                update(product.copy(id = existing.id))
+                updated++
+            }
+        }
+        return added to updated
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(product: ProductEntity)
 

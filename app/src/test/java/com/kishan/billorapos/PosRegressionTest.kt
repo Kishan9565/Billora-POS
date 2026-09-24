@@ -211,6 +211,68 @@ class PosRegressionTest {
         runCurrent()
         assertEquals("new@bank", billing.state.value.shopDetails!!.upiId)
     }
+    @Test fun csvImportUpdatesBarcodePreservingIdentityAndNormalAddStillRejectsIt() = runTest(dispatcher) {
+        val dao = MemoryProductDao()
+        val repo = ProductRepositoryImpl(dao)
+        repo.addProduct(product())
+        val result = repo.importProducts(listOf(product(id = "new-id", price = 9.0, stock = 12), product(id = "new", barcode = "456")))
+        assertTrue(result is Result.Success)
+        val counts = (result as Result.Success).data
+        assertEquals(1, counts.added)
+        assertEquals(1, counts.updated)
+        assertEquals("p", dao.rows.value.first { it.barcode == "123" }.id)
+        assertEquals(12, dao.rows.value.first { it.barcode == "123" }.stock)
+        assertTrue(repo.addProduct(product(id = "duplicate")) is Result.Error)
+    }
+
+    @Test fun duplicateBarcodesWithinImportUpdateEarlierRows() = runTest(dispatcher) {
+        val repo = ProductRepositoryImpl(MemoryProductDao())
+        val result = repo.importProducts(listOf(product(), product(id = "second", price = 3.0))) as Result.Success
+        assertEquals(1, result.data.added)
+        assertEquals(1, result.data.updated)
+        assertEquals(3.0, repo.getProducts().first().single().price, 0.0)
+    }
+
+    @Test fun unknownBarcodeOffersAddWithOriginalBarcode() = runTest(dispatcher) {
+        val vm = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), MemoryShop(), MemoryPrinter())
+        vm.onAction(BillingAction.OnBarcodeDetected("00123"))
+        runCurrent()
+        val event = vm.events.first() as BillingEvent.ShowSnackbar
+        assertTrue(event.isError)
+        assertEquals("00123", event.unknownBarcode)
+    }
+
+    @Test fun onboardingSkipPersistsEmptyAndCompletesSetup() = runTest(dispatcher) {
+        val shop = MemoryShop()
+        val vm = ShopViewModel(shop)
+        runCurrent()
+        vm.onAction(ShopAction.SkipSetup)
+        runCurrent()
+        assertEquals(Shop.EMPTY, shop.shop)
+        assertTrue(shop.isSetupComplete())
+        assertEquals(ShopEvent.SaveSuccess, vm.events.first())
+    }
+
+    @Test fun onboardingSaveReusesValidationAndOnlyCompletesAfterValidSave() = runTest(dispatcher) {
+        val shop = MemoryShop()
+        val vm = ShopViewModel(shop)
+        runCurrent()
+        vm.onAction(ShopAction.SaveShop("", "Street", "", "123", "", "", completeSetup = true))
+        runCurrent()
+        assertFalse(shop.complete)
+        vm.onAction(ShopAction.SaveShop("Store", "Street", "", "123", "", "", completeSetup = true))
+        runCurrent()
+        assertTrue(shop.complete)
+        assertEquals("Store", shop.shop.name)
+    }
+
+    @Test fun startupDoesNotExposeHomeBeforePreferenceRead() = runTest(dispatcher) {
+        val vm = StartupViewModel(MemoryShop())
+        assertNull(vm.state.value.complete)
+        runCurrent()
+        assertEquals(false, vm.state.value.complete)
+    }
+
 }
 
 private class MemoryProductDao : ProductDao {
@@ -237,6 +299,13 @@ private class MemoryProductDao : ProductDao {
 }
 
 private class MemoryShop : ShopRepository {
+    var complete = false
+    override suspend fun isSetupComplete() = complete
+    override suspend fun completeSetup(shop: Shop): Result<Unit, DataError.Local> {
+        this.shop = shop
+        complete = true
+        return Result.Success(Unit)
+    }
     var shop = Shop(name = "Shop", upiId = "shop@bank")
     override suspend fun getShop(): Result<Shop, DataError.Local> = Result.Success(shop)
     override suspend fun updateShop(shop: Shop): Result<Unit, DataError.Local> {

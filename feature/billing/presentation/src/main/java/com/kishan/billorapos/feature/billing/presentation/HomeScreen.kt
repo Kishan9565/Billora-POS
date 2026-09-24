@@ -95,7 +95,8 @@ import java.util.concurrent.Executors
 fun HomeScreen(
     viewModel: BillingViewModel,
     onNavigateToSettings: () -> Unit,
-    onNavigateToCheckout: () -> Unit
+    onNavigateToCheckout: () -> Unit,
+    onAddUnknownProduct: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -127,7 +128,14 @@ fun HomeScreen(
     ObserveEvents(viewModel.events) { event ->
             when (event) {
                 is BillingEvent.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(event.message)
+                    val result = snackbarHostState.showSnackbar(
+                        event.message,
+                        actionLabel = if (event.unknownBarcode != null) "Add" else null,
+                        duration = androidx.compose.material3.SnackbarDuration.Short
+                    )
+                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                        event.unknownBarcode?.let(onAddUnknownProduct)
+                    }
                 }
                 is BillingEvent.NavigateToCheckout -> onNavigateToCheckout()
                 is BillingEvent.NavigateToSettings -> onNavigateToSettings()

@@ -18,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kishan.billorapos.core.designsystem.BilloraPOSTheme
 import com.kishan.billorapos.core.domain.Product
 import com.kishan.billorapos.feature.billing.presentation.CheckoutScreen
@@ -31,6 +32,8 @@ import com.kishan.billorapos.feature.shop.presentation.ShopDetailsScreen
 import kotlinx.serialization.Serializable
 import org.koin.androidx.compose.koinViewModel
 
+@Serializable object StartupRoute
+@Serializable object ShopOnboardingRoute
 @Serializable object HomeRoute
 @Serializable object ScannerRoute
 @Serializable object CheckoutRoute
@@ -70,12 +73,40 @@ fun AppNavigation() {
     var scannerResultTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
 
-    NavHost(navController = navController, startDestination = HomeRoute) {
+    NavHost(navController = navController, startDestination = StartupRoute) {
+        composable<StartupRoute> {
+            val startup: StartupViewModel = koinViewModel()
+            val state by startup.state.collectAsStateWithLifecycle()
+            LaunchedEffect(state.complete) {
+                state.complete?.let { complete ->
+                    navController.navigate(if (complete) HomeRoute else ShopOnboardingRoute) {
+                        popUpTo<StartupRoute> { inclusive = true }
+                    }
+                }
+            }
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                if (state.error) androidx.compose.material3.TextButton(onClick = startup::load) { androidx.compose.material3.Text("Unable to read shop setup. Retry") }
+                else androidx.compose.material3.CircularProgressIndicator()
+            }
+        }
+        composable<ShopOnboardingRoute> {
+            ShopDetailsScreen(viewModel = koinViewModel(), onboarding = true, onNavigateBack = {
+                navController.navigate(HomeRoute) {
+                    popUpTo<ShopOnboardingRoute> { inclusive = true }
+                    launchSingleTop = true
+                }
+            })
+        }
         composable<HomeRoute> {
             HomeScreen(
                 viewModel = billingViewModel,
                 onNavigateToSettings = { navController.navigate(SettingsRoute) { launchSingleTop = true } },
-                onNavigateToCheckout = { navController.navigate(CheckoutRoute) { launchSingleTop = true } }
+                onNavigateToCheckout = { navController.navigate(CheckoutRoute) { launchSingleTop = true } },
+                onAddUnknownProduct = { barcode ->
+                    scannedBarcode = barcode
+                    scannerResultTarget = "add_product"
+                    navController.navigate(AddProductRoute) { launchSingleTop = true }
+                }
             )
         }
 

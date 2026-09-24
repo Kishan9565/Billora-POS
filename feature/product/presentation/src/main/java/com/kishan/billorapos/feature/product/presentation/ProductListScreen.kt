@@ -43,6 +43,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import com.kishan.billorapos.core.presentation.ObserveEvents
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +76,30 @@ fun ProductListScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var fileBusy by remember { mutableStateOf(false) }
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            fileBusy = true
+            scope.launch {
+                try {
+                    val content = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                            ?: error("Unable to open CSV")
+                    }
+                    viewModel.onAction(ProductAction.ImportCsv(content))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar(e.message ?: "Unable to open CSV")
+                } finally { fileBusy = false }
+            }
+        }
+    }
 
     var productToDelete by remember { mutableStateOf<Product?>(null) }
 
@@ -128,6 +154,30 @@ fun ProductListScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                TextButton(enabled = !fileBusy && !state.isLoading, onClick = {
+                    fileBusy = true
+                    scope.launch {
+                        try {
+                            val csv = viewModel.exportCsv()
+                            val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val directory = java.io.File(context.cacheDir, "exports").apply { mkdirs() }
+                                java.io.File.createTempFile("products-", ".csv", directory).apply { writeText(csv, Charsets.UTF_8) }
+                            }
+                            com.kishan.billorapos.core.presentation.shareFile(context, file, "text/csv")
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar(e.message ?: "Unable to export CSV")
+                        } finally { fileBusy = false }
+                    }
+                }) { Text("Export as CSV") }
+                TextButton(enabled = !fileBusy && !state.isLoading, onClick = {
+                    // Some file managers label CSV as text/plain, Excel or octet-stream.
+                    try { importLauncher.launch(arrayOf("*/*")) }
+                    catch (e: Exception) { scope.launch { snackbarHostState.showSnackbar("No document picker available") } }
+                }) { Text("Import from CSV") }
+            }
             // Search row
             Row(
                 modifier = Modifier

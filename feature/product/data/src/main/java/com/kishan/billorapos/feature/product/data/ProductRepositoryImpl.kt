@@ -15,6 +15,17 @@ class ProductRepositoryImpl(
     private val productDao: ProductDao
 ) : ProductRepository {
 
+    override suspend fun importProducts(products: List<Product>): Result<com.kishan.billorapos.feature.product.domain.ImportCounts, DataError.Local> {
+        return try {
+            val (added, updated) = productDao.importProducts(products.map { it.toEntity() })
+            Result.Success(com.kishan.billorapos.feature.product.domain.ImportCounts(added, updated))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.Error(DataError.Local.UNKNOWN, "Unable to import products. No changes were saved.")
+        }
+    }
+
     override fun getProducts(): Flow<List<Product>> {
         return productDao.getAll().map { entities ->
             entities.map { it.toDomain() }

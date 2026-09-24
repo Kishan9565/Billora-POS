@@ -54,7 +54,8 @@ import com.kishan.billorapos.core.designsystem.PrimaryColor
 @Composable
 fun ShopDetailsScreen(
     viewModel: ShopViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onboarding: Boolean = false
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -101,8 +102,11 @@ fun ShopDetailsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Shop Details", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor) } },
+                title = { Text(if (onboarding) "Set up your shop" else "Shop Details", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+                navigationIcon = { if (!onboarding) IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor) } },
+                actions = {
+                    if (onboarding) TextButton(enabled = !state.isLoading, onClick = { viewModel.onAction(ShopAction.SkipSetup) }) { Text("Skip") }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         }
@@ -149,7 +153,7 @@ fun ShopDetailsScreen(
                     OutlinedTextField(
                         value = address1,
                         onValueChange = { address1 = it; address1Error = false },
-                        placeholder = { Text("Samrajpet, Mecheri", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
+                        placeholder = { Text("Street address", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         isError = address1Error,
@@ -164,7 +168,7 @@ fun ShopDetailsScreen(
                     OutlinedTextField(
                         value = address2,
                         onValueChange = { address2 = it },
-                        placeholder = { Text("Salem - 636453", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
+                        placeholder = { Text("City and postal code", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
@@ -178,7 +182,7 @@ fun ShopDetailsScreen(
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it; phoneError = false },
-                        placeholder = { Text("+91 7010674588", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
+                        placeholder = { Text("Phone number", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         isError = phoneError,
@@ -193,7 +197,7 @@ fun ShopDetailsScreen(
                     OutlinedTextField(
                         value = upiId,
                         onValueChange = { upiId = it },
-                        placeholder = { Text("dineshsowndar@oksbi", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
+                        placeholder = { Text("yourshop@bank", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
@@ -229,10 +233,10 @@ fun ShopDetailsScreen(
                             if (phone.isBlank()) { phoneError = true; hasError = true }
 
                             if (!hasError) {
-                                viewModel.onAction(ShopAction.SaveShop(name, address1, address2, phone, upiId, footerText))
+                                viewModel.onAction(ShopAction.SaveShop(name, address1, address2, phone, upiId, footerText, completeSetup = onboarding))
                             }
                         },
-                        label = "Save Details", isLoading = state.isLoading
+                        label = if (onboarding) "Save & Continue" else "Save Details", isLoading = state.isLoading
                     )
                 }
             }

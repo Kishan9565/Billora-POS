@@ -227,29 +227,12 @@ fun AddProductScreen(
             ) {
                 PrimaryButton(
                     onPressed = {
-                        var hasError = false
-                        if (barcode.isBlank()) {
-                            barcodeError = "Please enter a barcode"
-                            hasError = true
-                        }
-                        if (productName.isBlank()) {
-                            nameError = "Please enter a name"
-                            hasError = true
-                        }
-                        val parsedPrice = price.toDoubleOrNull()
-                        if (price.isBlank()) {
-                            priceError = "Please enter a price"
-                            hasError = true
-                        } else if (parsedPrice == null || !parsedPrice.isFinite()) {
-                            priceError = "Please enter a valid number"
-                            hasError = true
-                        } else if (parsedPrice < 0) {
-                            priceError = "Price cannot be negative"
-                            hasError = true
-                        }
-
-                        if (!hasError && parsedPrice != null) {
-                            viewModel.onAction(ProductAction.OnAddProduct(productName, barcode, parsedPrice))
+                        val validation = com.kishan.billorapos.feature.product.domain.validateProduct(productName, barcode, price)
+                        barcodeError = validation.barcodeError
+                        nameError = validation.nameError
+                        priceError = validation.priceError
+                        if (validation.isValid) {
+                            viewModel.onAction(ProductAction.OnAddProduct(productName, barcode, price.toDouble()))
                         }
                     },
                     label = "Add Product", isLoading = state.isLoading

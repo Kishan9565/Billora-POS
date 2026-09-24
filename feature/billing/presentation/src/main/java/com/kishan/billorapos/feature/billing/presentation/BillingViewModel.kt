@@ -78,7 +78,7 @@ class BillingViewModel(
                         is Result.Error -> {
                             val message = if (res.error == com.kishan.billorapos.core.domain.DataError.Local.NOT_FOUND)
                                 "Product not found: ${action.rawValue}" else "Unable to look up product. Please retry."
-                            _eventChannel.send(BillingEvent.ShowSnackbar(message, isError = true))
+                            _eventChannel.send(BillingEvent.ShowSnackbar(message, isError = true, unknownBarcode = action.rawValue.takeIf { res.error == com.kishan.billorapos.core.domain.DataError.Local.NOT_FOUND }))
                         }
                     }
                 }

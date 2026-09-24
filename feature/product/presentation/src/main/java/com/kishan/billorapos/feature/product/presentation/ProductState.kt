@@ -10,6 +10,7 @@ data class ProductState(
 )
 
 sealed interface ProductAction {
+    data class ImportCsv(val content: String) : ProductAction
     object RetryLoad : ProductAction
     data class OnSearchQueryChange(val query: String) : ProductAction
     data class OnDeleteProductClick(val id: String) : ProductAction

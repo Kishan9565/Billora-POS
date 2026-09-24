@@ -3,6 +3,7 @@ package com.kishan.billorapos
 import android.app.Application
 import androidx.room.Room
 import com.kishan.billorapos.core.data.PrinterDataStore
+import com.kishan.billorapos.core.data.ShopSetupDataStore
 import com.kishan.billorapos.core.database.AppDatabase
 import com.kishan.billorapos.core.printer.PrinterHelper
 import com.kishan.billorapos.feature.billing.presentation.BillingViewModel
@@ -40,6 +41,7 @@ class BilloraApp : Application() {
 
             // DataStore / Core Printer
             singleOf(::PrinterDataStore)
+            singleOf(::ShopSetupDataStore)
             singleOf(::PrinterHelper)
 
             // Repositories
@@ -50,6 +52,7 @@ class BilloraApp : Application() {
             // ViewModels
             viewModelOf(::ProductViewModel)
             viewModelOf(::ShopViewModel)
+            viewModelOf(::StartupViewModel)
             viewModelOf(::PrinterViewModel)
             viewModelOf(::BillingViewModel)
         }

@@ -31,6 +31,15 @@ class ShopViewModel(
         if (_state.value.isLoading) return
         _state.update { it.copy(isLoading = true, errorMessage = null) }
         when (action) {
+            ShopAction.SkipSetup -> {
+                viewModelScope.launch {
+                    when (val result = shopRepository.completeSetup(Shop.EMPTY)) {
+                        is Result.Success -> _eventChannel.send(ShopEvent.SaveSuccess)
+                        is Result.Error -> _eventChannel.send(ShopEvent.ShowSnackbar(result.message ?: "Unable to skip setup", true))
+                    }
+                    _state.update { it.copy(isLoading = false) }
+                }
+            }
             is ShopAction.LoadShop -> {
                 viewModelScope.launch {
                     _state.update { it.copy(isLoading = true) }
@@ -60,7 +69,7 @@ class ShopViewModel(
                         upiId = action.upiId,
                         footerText = action.footerText
                     )
-                    when (val result = shopRepository.updateShop(updatedShop)) {
+                    when (val result = if (action.completeSetup) shopRepository.completeSetup(updatedShop) else shopRepository.updateShop(updatedShop)) {
                         is Result.Success -> {
                             _state.update { it.copy(shop = updatedShop) }
                             _eventChannel.send(ShopEvent.SaveSuccess)

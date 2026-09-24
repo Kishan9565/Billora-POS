@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +66,8 @@ fun CheckoutScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val permissionScope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var exporting by remember { androidx.compose.runtime.mutableStateOf(false) }
     val printerAction = com.kishan.billorapos.core.presentation.rememberPrinterAction(
         onDenied = { permissionScope.launch { snackbarHostState.showSnackbar("Allow Nearby devices permission in app settings to use the printer.") } },
         action = { viewModel.onAction(BillingAction.PrintReceiptClick) }
@@ -159,6 +162,33 @@ fun CheckoutScreen(
                     Text("GRAND TOTAL", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
                     Text("\u20B9${"%.2f".format(state.totalAmount)}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+            item(key = "pdf") {
+                PrimaryButton(label = "Save as PDF", isLoading = exporting, onPressed = {
+                    val receipt = state
+                    val shop = receipt.shopDetails
+                    if (!exporting) {
+                        exporting = true
+                        permissionScope.launch {
+                            try {
+                                check(shop != null) { "Shop details not loaded. Please retry." }
+                                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    com.kishan.billorapos.core.printer.ReceiptPdf.create(
+                                        context.applicationContext, shop,
+                                        receipt.cartItems.map { Triple(it.product.name, it.product.price, it.quantity) },
+                                        receipt.totalAmount,
+                                        java.text.SimpleDateFormat("dd-MM-yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
+                                    )
+                                }
+                                com.kishan.billorapos.core.presentation.shareFile(context, file, "application/pdf")
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar(e.message ?: "Unable to save PDF")
+                            } finally { exporting = false }
+                        }
+                    }
+                })
             }
             item(key = "print") {
                 PrimaryButton(onPressed = printerAction, label = "Print Receipt", icon = Icons.Default.Print, isLoading = state.isPrinting)
