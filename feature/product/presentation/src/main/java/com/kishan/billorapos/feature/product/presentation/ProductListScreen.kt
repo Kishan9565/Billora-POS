@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.kishan.billorapos.core.designsystem.icons.QrCodeScanner
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -41,9 +42,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.kishan.billorapos.core.presentation.ObserveEvents
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,9 +69,10 @@ fun ProductListScreen(
     onNavigateToAddProduct: () -> Unit,
     onNavigateToEditProduct: (Product) -> Unit,
     onLaunchScanner: () -> Unit,
-    scannedBarcodeResult: String? = null
+    scannedBarcodeResult: String? = null,
+    onBarcodeConsumed: () -> Unit = {}
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var productToDelete by remember { mutableStateOf<Product?>(null) }
@@ -82,18 +85,17 @@ fun ProductListScreen(
             } else {
                 viewModel.onAction(ProductAction.OnSearchQueryChange(scannedBarcodeResult))
             }
+            onBarcodeConsumed()
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
+    ObserveEvents(viewModel.events) { event ->
             when (event) {
                 is ProductEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
                 }
                 else -> {}
             }
-        }
     }
 
     Scaffold(
@@ -115,7 +117,7 @@ fun ProductListScreen(
                 containerColor = PrimaryColor,
                 contentColor = Color.White,
                 shape = CircleShape,
-                modifier = Modifier.padding(bottom = 16.dp, right = 16.dp)
+                modifier = Modifier.padding(bottom = 16.dp, end = 16.dp)
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "Add Product", modifier = Modifier.size(32.dp))
             }
@@ -136,14 +138,15 @@ fun ProductListScreen(
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = { viewModel.onAction(ProductAction.OnSearchQueryChange(it)) },
-                    placeholder = { Text("Scan or enter barcode", color = Color.Gray, fontSize = 13.sp) },
+                    placeholder = { Text("Scan or enter barcode", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                     leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
                         unfocusedBorderColor = Color.LightGray,
-                        containerColor = Color.White
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
                     ),
                     singleLine = true
                 )
@@ -155,7 +158,7 @@ fun ProductListScreen(
                         .background(PrimaryColor.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
                 ) {
                     // Try to draw a qr code scanner icon or fallback
-                    Text("📷", color = PrimaryColor, fontSize = 20.sp)
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan barcode", tint = PrimaryColor)
                 }
             }
             Text(
@@ -173,17 +176,20 @@ fun ProductListScreen(
                 }
             } else if (state.errorMessage != null && state.products.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Error: ${state.errorMessage}", color = Color.Red, textAlign = TextAlign.Center)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Error: ${state.errorMessage}", color = androidx.compose.material3.MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                        TextButton(onClick = { viewModel.onAction(ProductAction.RetryLoad) }) { Text("Retry") }
+                    }
                 }
             } else if (state.products.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     val txt = if (state.searchQuery.isNotEmpty()) "No products match your search." else "No products found. Add some!"
-                    Text(txt, textAlign = TextAlign.Center, fontSize = 16.sp, color = Color.Gray)
+                    Text(txt, textAlign = TextAlign.Center, fontSize = 16.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, top = 8.dp, bottom = 100.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(state.products, key = { it.id }) { product ->
@@ -203,24 +209,25 @@ fun ProductListScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = product.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = "₹${"%.2f".format(product.price)}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.Gray)
+                                    Text(text = "₹${"%.2f".format(product.price)}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     IconButton(
                                         onClick = { onNavigateToEditProduct(product) },
                                         modifier = Modifier
-                                            .size(36.dp)
+                                            .size(48.dp)
                                             .background(PrimaryColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                                     ) {
                                         Icon(imageVector = Icons.Default.Edit, contentDescription = "Edit", tint = PrimaryColor, modifier = Modifier.size(18.dp))
                                     }
                                     IconButton(
                                         onClick = { productToDelete = product },
+                                        enabled = !state.isLoading,
                                         modifier = Modifier
-                                            .size(36.dp)
-                                            .background(Color.Red.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                                            .size(48.dp)
+                                            .background(androidx.compose.material3.MaterialTheme.colorScheme.error.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
                                     ) {
-                                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red, modifier = Modifier.size(18.dp))
+                                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
@@ -243,12 +250,12 @@ fun ProductListScreen(
                         productToDelete = null
                     }
                 ) {
-                    Text("Delete", color = Color.Red)
+                    Text("Delete", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { productToDelete = null }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         )

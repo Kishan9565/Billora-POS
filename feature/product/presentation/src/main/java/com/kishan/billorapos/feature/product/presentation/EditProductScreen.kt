@@ -2,6 +2,7 @@ package com.kishan.billorapos.feature.product.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import com.kishan.billorapos.core.designsystem.icons.QrCodeScanner
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,10 +31,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.kishan.billorapos.core.presentation.ObserveEvents
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,17 +62,17 @@ fun EditProductScreen(
     viewModel: ProductViewModel,
     onNavigateBack: () -> Unit
 ) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
 
-    var productName by remember { mutableStateOf(product.name) }
-    var price by remember { mutableStateOf("%.2f".format(product.price)) }
+    var productName by rememberSaveable { mutableStateOf(product.name) }
+    var price by rememberSaveable { mutableStateOf(java.lang.Double.toString(product.price)) }
 
-    var nameError by remember { mutableStateOf<String?>(null) }
-    var priceError by remember { mutableStateOf<String?>(null) }
+    var nameError by rememberSaveable { mutableStateOf<String?>(null) }
+    var priceError by rememberSaveable { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
+    ObserveEvents(viewModel.events) { event ->
             when (event) {
                 is ProductEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
@@ -76,10 +81,9 @@ fun EditProductScreen(
                     onNavigateBack()
                 }
             }
-        }
     }
 
-    Scaffold(
+    Scaffold(modifier = Modifier.imePadding(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -114,7 +118,7 @@ fun EditProductScreen(
                         .padding(16.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📷", color = PrimaryColor, fontSize = 28.sp)
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan barcode", tint = PrimaryColor)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(text = "BARCODE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryColor.copy(alpha = 0.7f))
@@ -133,21 +137,21 @@ fun EditProductScreen(
                         productName = it
                         nameError = null
                     },
-                    placeholder = { Text("e.g. Basmati Rice", color = Color.Gray, fontSize = 13.sp) },
+                    placeholder = { Text("e.g. Basmati Rice", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
                         unfocusedBorderColor = Color.LightGray,
-                        containerColor = Color.White,
-                        errorBorderColor = Color.Red
+                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                        errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     ),
                     isError = nameError != null,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     singleLine = true
                 )
                 if (nameError != null) {
-                    Text(text = nameError ?: "", color = Color.Red, fontSize = 12.dp.value.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                    Text(text = nameError ?: "", color = androidx.compose.material3.MaterialTheme.colorScheme.error, fontSize = 12.dp.value.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -160,22 +164,22 @@ fun EditProductScreen(
                         price = it
                         priceError = null
                     },
-                    placeholder = { Text("0.00", color = Color.Gray, fontSize = 13.sp) },
+                    placeholder = { Text("0.00", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                     prefix = { Text("₹ ", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.Black)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
                         unfocusedBorderColor = Color.LightGray,
-                        containerColor = Color.White,
-                        errorBorderColor = Color.Red
+                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                        errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     ),
                     isError = priceError != null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
                 if (priceError != null) {
-                    Text(text = priceError ?: "", color = Color.Red, fontSize = 12.dp.value.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+                    Text(text = priceError ?: "", color = androidx.compose.material3.MaterialTheme.colorScheme.error, fontSize = 12.dp.value.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
                 }
 
                 Spacer(modifier = Modifier.height(100.dp))
@@ -198,7 +202,7 @@ fun EditProductScreen(
                         if (price.isBlank()) {
                             priceError = "Please enter a price"
                             hasError = true
-                        } else if (parsedPrice == null) {
+                        } else if (parsedPrice == null || !parsedPrice.isFinite()) {
                             priceError = "Please enter a valid number"
                             hasError = true
                         } else if (parsedPrice < 0) {
@@ -211,7 +215,7 @@ fun EditProductScreen(
                             viewModel.onAction(ProductAction.OnUpdateProduct(updatedProduct))
                         }
                     },
-                    label = "Save Changes"
+                    label = "Save Changes", isLoading = state.isLoading
                 )
             }
         }

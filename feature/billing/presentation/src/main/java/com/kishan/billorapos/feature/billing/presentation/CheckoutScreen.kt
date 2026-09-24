@@ -21,7 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Print
+import com.kishan.billorapos.core.designsystem.icons.Print
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,9 +32,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.kishan.billorapos.core.presentation.ObserveEvents
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -58,8 +62,17 @@ fun CheckoutScreen(
     viewModel: BillingViewModel,
     onNavigateHomePop: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val permissionScope = rememberCoroutineScope()
+    val printerAction = com.kishan.billorapos.core.presentation.rememberPrinterAction(
+        onDenied = { permissionScope.launch { snackbarHostState.showSnackbar("Allow Nearby devices permission in app settings to use the printer.") } },
+        action = { viewModel.onAction(BillingAction.PrintReceiptClick) }
+    )
+    LifecycleResumeEffect(Unit) {
+        viewModel.onAction(BillingAction.LoadShopDetails)
+        onPauseOrDispose { }
+    }
 
     fun handleBack() {
         viewModel.onAction(BillingAction.OnClearCart)
@@ -70,15 +83,13 @@ fun CheckoutScreen(
         handleBack()
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
+    ObserveEvents(viewModel.events) { event ->
             when (event) {
                 is BillingEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
                 }
                 else -> {}
             }
-        }
     }
 
     Scaffold(
@@ -95,148 +106,66 @@ fun CheckoutScreen(
             )
         }
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Scrollable Content Table
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 420.dp)
-            ) {
-                item {
-                    // Bordered, shadowed itemized table
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp))
-                            .border(1.dp, Color(0xFFE5E5EA), RoundedCornerShape(12.dp))
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                    ) {
-                        // Header row (background #F8FAFC)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFFF8FAFC))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = "PRODUCT NAME", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.weight(1f))
-                            Text(text = "PRICE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.width(80.dp), textAlign = TextAlign.End)
-                            Text(text = "TOTAL", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.width(80.dp), textAlign = TextAlign.End)
-                        }
-
-                        HorizontalDivider(color = Color(0xFFE5E5EA))
-
-                        // Data rows
-                        state.cartItems.forEach { item ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${item.quantity} x ${item.product.name}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Black,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = "₹${"%.2f".format(item.product.price)}",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray,
-                                    modifier = Modifier.width(80.dp),
-                                    textAlign = TextAlign.End
-                                )
-                                Text(
-                                    text = "₹${"%.2f".format(item.total)}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black,
-                                    modifier = Modifier.width(80.dp),
-                                    textAlign = TextAlign.End
-                                )
-                            }
-                            HorizontalDivider(color = Color(0xFFE5E5EA))
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
+            item(key = "header") {
+                Row(Modifier.fillMaxWidth().background(Color(0xFFF8FAFC)).padding(12.dp)) {
+                    Text("PRODUCT NAME", modifier = Modifier.weight(1f), fontSize = 11.sp, color = Color.DarkGray)
+                    Text("PRICE", modifier = Modifier.weight(0.55f), textAlign = TextAlign.End, fontSize = 11.sp)
+                    Text("TOTAL", modifier = Modifier.weight(0.65f), textAlign = TextAlign.End, fontSize = 11.sp)
                 }
             }
-
-            // Fixed Bottom Bar with white @ 90% alpha, rounded top corners 24dp
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .shadow(
-                        elevation = 10.dp,
-                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                        clip = false,
-                        ambientColor = Color.Black.copy(alpha = 0.05f),
-                        spotColor = Color.Black.copy(alpha = 0.05f)
-                    )
-                    .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .padding(top = 16.dp)
-            ) {
-                // UPI QR Block - shown only if shop upiId is non-empty
-                val upiId = state.shopDetails?.upiId ?: ""
-                if (upiId.isNotEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(text = "Scan to Pay", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black, letterSpacing = 1.1.sp)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        val shopName = state.shopDetails?.name ?: ""
-                        val upiUrl = "upi://pay?pa=$upiId&pn=$shopName&am=${"%.2f".format(state.totalAmount)}&cu=INR"
-                        
-                        val qrBitmap = remember(upiUrl) { generateQrCode(upiUrl) }
+            items(state.cartItems, key = { "product:${it.product.id}" }) { item ->
+                Column {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${item.quantity} x ${item.product.name}", modifier = Modifier.weight(1f), fontSize = 14.sp)
+                        Text("\u20B9${"%.2f".format(item.product.price)}", modifier = Modifier.weight(0.55f), textAlign = TextAlign.End, fontSize = 12.sp)
+                        Text("\u20B9${"%.2f".format(item.total)}", modifier = Modifier.weight(0.65f), textAlign = TextAlign.End, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                    HorizontalDivider(color = Color(0xFFE5E5EA))
+                }
+            }
+            if (state.error != null) {
+                item(key = "error") {
+                    Text(state.error.orEmpty(), color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                    androidx.compose.material3.TextButton(onClick = { viewModel.onAction(BillingAction.LoadShopDetails) }) { Text("Retry") }
+                }
+            }
+            val upiId = state.shopDetails?.upiId.orEmpty()
+            if (upiId.isNotEmpty()) {
+                item(key = "payment") {
+                    Column(Modifier.fillMaxWidth().background(Color.White).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Scan to Pay", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(12.dp))
+                        val uri = com.kishan.billorapos.feature.billing.domain.paymentUri(upiId, state.shopDetails?.name.orEmpty(), state.totalAmount)
+                        val qrResult by androidx.compose.runtime.produceState<Pair<Boolean, Bitmap?>>(true to null, uri) {
+                            value = true to null
+                            value = false to kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { generateQrCode(uri) }
+                        }
+                        val qrBitmap = qrResult.second
                         if (qrBitmap != null) {
-                            androidx.compose.foundation.Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = "UPI QR Code",
-                                modifier = Modifier.size(180.dp)
-                            )
+                            androidx.compose.foundation.Image(qrBitmap!!.asImageBitmap(), contentDescription = "UPI QR Code", modifier = Modifier.size(180.dp))
                         } else {
-                            Box(modifier = Modifier.size(180.dp), contentAlignment = Alignment.Center) {
-                                Text("QR Code Error", color = Color.Red)
-                            }
+                            Box(Modifier.size(180.dp), contentAlignment = Alignment.Center) { Text(if (qrResult.first) "Preparing payment QR" else "QR Code Error") }
                         }
                     }
-                    Spacer(modifier = Modifier.height(15.dp))
                 }
-
-                // Grand total row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "GRAND TOTAL", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.2.sp)
-                    Text(text = "₹${"%.2f".format(state.totalAmount)}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), letterSpacing = (-0.5).sp)
+            }
+            item(key = "total") {
+                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("GRAND TOTAL", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                    Text("\u20B9${"%.2f".format(state.totalAmount)}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
-
-                // Print Receipt PrimaryButton
-                PrimaryButton(
-                    onPressed = { viewModel.onAction(BillingAction.PrintReceiptClick) },
-                    label = "Print Receipt",
-                    icon = Icons.Default.Print,
-                    isLoading = state.isPrinting
-                )
+            }
+            item(key = "print") {
+                PrimaryButton(onPressed = printerAction, label = "Print Receipt", icon = Icons.Default.Print, isLoading = state.isPrinting)
             }
         }
     }
 }
-
 private fun generateQrCode(text: String): Bitmap? {
     return try {
         val writer = QRCodeWriter()

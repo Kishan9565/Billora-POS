@@ -4,7 +4,9 @@ import com.kishan.billorapos.core.data.PrinterDataStore
 import com.kishan.billorapos.core.printer.BluetoothDeviceInfo
 import com.kishan.billorapos.core.printer.PrinterHelper
 import com.kishan.billorapos.feature.settings.domain.PrinterRepository
-import kotlinx.flow.Flow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class PrinterRepositoryImpl(
     private val printerHelper: PrinterHelper,
@@ -14,20 +16,22 @@ class PrinterRepositoryImpl(
     override val savedPrinterMac: Flow<String?> = printerDataStore.printerMac
     override val savedPrinterName: Flow<String?> = printerDataStore.printerName
 
+    override val connectionState = printerHelper.connectionState
+
     override val isConnected: Boolean
         get() = printerHelper.isConnected
 
-    override fun getBondedDevices(): List<BluetoothDeviceInfo> = printerHelper.getBondedDevices()
+    override suspend fun getBondedDevices(): List<BluetoothDeviceInfo> = withContext(Dispatchers.IO) { printerHelper.getBondedDevices() }
 
-    override fun connect(macAddress: String): Boolean = printerHelper.connect(macAddress)
+    override suspend fun connect(macAddress: String): Boolean = withContext(Dispatchers.IO) { printerHelper.connect(macAddress) }
 
-    override fun disconnect(): Boolean = printerHelper.disconnect()
+    override suspend fun disconnect(): Boolean = withContext(Dispatchers.IO) { printerHelper.disconnect() }
 
     override suspend fun savePrinter(mac: String, name: String) = printerDataStore.savePrinter(mac, name)
 
     override suspend fun clearPrinter() = printerDataStore.clearPrinter()
 
-    override fun printReceipt(
+    override suspend fun printReceipt(
         shopName: String,
         address1: String,
         address2: String,
@@ -37,8 +41,8 @@ class PrinterRepositoryImpl(
         footer: String,
         timestamp: String
     ): Boolean {
-        return printerHelper.printReceipt(shopName, address1, address2, phone, items, total, footer, timestamp)
+        return withContext(Dispatchers.IO) { printerHelper.printReceipt(shopName, address1, address2, phone, items, total, footer, timestamp) }
     }
 
-    override fun testPrint(shopName: String): Boolean = printerHelper.testPrint(shopName)
+    override suspend fun testPrint(shopName: String): Boolean = withContext(Dispatchers.IO) { printerHelper.testPrint(shopName) }
 }

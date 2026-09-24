@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,6 +76,10 @@ fun ScannerScreen(
         )
     }
 
+    LifecycleResumeEffect(Unit) {
+        hasCameraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        onPauseOrDispose { }
+    }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted -> hasCameraPermission = granted }
@@ -122,66 +127,15 @@ fun ScannerScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                AndroidView(
-                    factory = { ctx ->
-                        val previewView = PreviewView(ctx)
-                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                        cameraProviderFuture.addListener({
-                            val cameraProvider = cameraProviderFuture.get()
-                            val preview = androidx.camera.core.Preview.Builder().build().apply {
-                                setSurfaceProvider(previewView.surfaceProvider)
-                            }
-
-                            val options = BarcodeScannerOptions.Builder()
-                                .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
-                                .build()
-                            val scanner = BarcodeScanning.getClient(options)
-
-                            val analysis = ImageAnalysis.Builder()
-                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                .build()
-
-                            analysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                                val mediaImage = imageProxy.image
-                                if (mediaImage != null && !isScanned) {
-                                    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                                    scanner.process(image)
-                                        .addOnSuccessListener { barcodes ->
-                                            val barcode = barcodes.firstOrNull()
-                                            if (barcode != null && !isScanned) {
-                                                val rawValue = barcode.rawValue
-                                                if (rawValue != null) {
-                                                    isScanned = true
-                                                    triggerVibration()
-                                                    onBarcodeScanned(rawValue)
-                                                }
-                                            }
-                                        }
-                                        .addOnCompleteListener {
-                                            imageProxy.close()
-                                        }
-                                } else {
-                                    imageProxy.close()
-                                }
-                            }
-
-                            try {
-                                cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(
-                                    lifecycleOwner,
-                                    CameraSelector.DEFAULT_BACK,
-                                    preview,
-                                    analysis
-                                )
-                            } catch (e: Exception) {
-                                // Ignore
-                            }
-                        }, ContextCompat.getMainExecutor(ctx))
-                        previewView
-                    },
+                com.kishan.billorapos.core.presentation.BarcodePreview(
                     modifier = Modifier.fillMaxSize()
-                )
-
+                ) { rawValue ->
+                    if (!isScanned) {
+                        isScanned = true
+                        triggerVibration()
+                        onBarcodeScanned(rawValue)
+                    }
+                }
                 // Simple 250x250dp square overlay, 2dp solid green border with 4 small 15x15dp white-bordered corner squares
                 Box(
                     modifier = Modifier
@@ -225,7 +179,7 @@ fun ScannerScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Camera permission is required to scan barcodes.", textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp))
+                androidx.compose.material3.TextButton(onClick = { launcher.launch(Manifest.permission.CAMERA) }) { Text("Allow camera access to scan barcodes", textAlign = TextAlign.Center) }
             }
         }
     }

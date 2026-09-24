@@ -20,7 +20,7 @@ class ShopViewModel(
     private val _state = MutableStateFlow(ShopState())
     val state: StateFlow<ShopState> = _state.asStateFlow()
 
-    private val _eventChannel = Channel<ShopEvent>()
+    private val _eventChannel = Channel<ShopEvent>(Channel.BUFFERED)
     val events = _eventChannel.receiveAsFlow()
 
     init {
@@ -28,6 +28,8 @@ class ShopViewModel(
     }
 
     fun onAction(action: ShopAction) {
+        if (_state.value.isLoading) return
+        _state.update { it.copy(isLoading = true, errorMessage = null) }
         when (action) {
             is ShopAction.LoadShop -> {
                 viewModelScope.launch {
@@ -45,6 +47,11 @@ class ShopViewModel(
             is ShopAction.SaveShop -> {
                 viewModelScope.launch {
                     _state.update { it.copy(isLoading = true) }
+                    if (action.name.isBlank() || action.addressLine1.isBlank() || action.phoneNumber.isBlank()) {
+                        _state.update { it.copy(isLoading = false) }
+                        _eventChannel.send(ShopEvent.ShowSnackbar("Enter a shop name, address and phone number", isError = true))
+                        return@launch
+                    }
                     val updatedShop = Shop(
                         name = action.name,
                         addressLine1 = action.addressLine1,
@@ -55,7 +62,7 @@ class ShopViewModel(
                     )
                     when (val result = shopRepository.updateShop(updatedShop)) {
                         is Result.Success -> {
-                            _eventChannel.send(ShopEvent.ShowSnackbar("Shop details saved!"))
+                            _state.update { it.copy(shop = updatedShop) }
                             _eventChannel.send(ShopEvent.SaveSuccess)
                         }
                         is Result.Error -> {

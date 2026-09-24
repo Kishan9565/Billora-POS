@@ -6,6 +6,7 @@ import com.kishan.billorapos.core.domain.DataError
 import com.kishan.billorapos.core.domain.Result
 import com.kishan.billorapos.core.domain.Shop
 import com.kishan.billorapos.feature.shop.domain.ShopRepository
+import kotlinx.coroutines.CancellationException
 
 class ShopRepositoryImpl(
     private val shopDao: ShopDao
@@ -19,6 +20,8 @@ class ShopRepositoryImpl(
             } else {
                 Result.Success(Shop.DEFAULT)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(DataError.Local.UNKNOWN, e.toString())
         }
@@ -28,6 +31,8 @@ class ShopRepositoryImpl(
         return try {
             shopDao.upsertShop(shop.toEntity())
             Result.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(DataError.Local.UNKNOWN, e.toString())
         }

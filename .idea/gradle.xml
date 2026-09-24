@@ -11,6 +11,29 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/core/data" />
+            <option value="$PROJECT_DIR$/core/database" />
+            <option value="$PROJECT_DIR$/core/design-system" />
+            <option value="$PROJECT_DIR$/core/domain" />
+            <option value="$PROJECT_DIR$/core/presentation" />
+            <option value="$PROJECT_DIR$/core/printer" />
+            <option value="$PROJECT_DIR$/feature" />
+            <option value="$PROJECT_DIR$/feature/billing" />
+            <option value="$PROJECT_DIR$/feature/billing/domain" />
+            <option value="$PROJECT_DIR$/feature/billing/presentation" />
+            <option value="$PROJECT_DIR$/feature/product" />
+            <option value="$PROJECT_DIR$/feature/product/data" />
+            <option value="$PROJECT_DIR$/feature/product/domain" />
+            <option value="$PROJECT_DIR$/feature/product/presentation" />
+            <option value="$PROJECT_DIR$/feature/settings" />
+            <option value="$PROJECT_DIR$/feature/settings/data" />
+            <option value="$PROJECT_DIR$/feature/settings/domain" />
+            <option value="$PROJECT_DIR$/feature/settings/presentation" />
+            <option value="$PROJECT_DIR$/feature/shop" />
+            <option value="$PROJECT_DIR$/feature/shop/data" />
+            <option value="$PROJECT_DIR$/feature/shop/domain" />
+            <option value="$PROJECT_DIR$/feature/shop/presentation" />
           </set>
         </option>
       </GradleProjectSettings>

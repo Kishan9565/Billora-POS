@@ -4,8 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +49,10 @@ import org.koin.androidx.compose.koinViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.DKGRAY),
+            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.WHITE, android.graphics.Color.DKGRAY)
+        )
         setContent {
             BilloraPOSTheme {
                 AppNavigation()
@@ -59,19 +65,17 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation() {
     val navController = rememberNavController()
     val billingViewModel: com.kishan.billorapos.feature.billing.presentation.BillingViewModel = koinViewModel()
-    val productViewModel: com.kishan.billorapos.feature.product.presentation.ProductViewModel = koinViewModel()
-    val shopViewModel: com.kishan.billorapos.feature.shop.presentation.ShopViewModel = koinViewModel()
     val printerViewModel: com.kishan.billorapos.feature.settings.presentation.PrinterViewModel = koinViewModel()
 
-    var scannerResultTarget by remember { mutableStateOf<String?>(null) }
-    var scannedBarcode by remember { mutableStateOf<String?>(null) }
+    var scannerResultTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
 
     NavHost(navController = navController, startDestination = HomeRoute) {
         composable<HomeRoute> {
             HomeScreen(
                 viewModel = billingViewModel,
-                onNavigateToSettings = { navController.navigate(SettingsRoute) },
-                onNavigateToCheckout = { navController.navigate(CheckoutRoute) }
+                onNavigateToSettings = { navController.navigate(SettingsRoute) { launchSingleTop = true } },
+                onNavigateToCheckout = { navController.navigate(CheckoutRoute) { launchSingleTop = true } }
             )
         }
 
@@ -105,47 +109,41 @@ fun AppNavigation() {
             SettingsScreen(
                 viewModel = printerViewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToProducts = { navController.navigate(ProductListRoute) },
-                onNavigateToShopDetails = { navController.navigate(ShopDetailsRoute) }
+                onNavigateToProducts = { navController.navigate(ProductListRoute) { launchSingleTop = true } },
+                onNavigateToShopDetails = { navController.navigate(ShopDetailsRoute) { launchSingleTop = true } }
             )
         }
 
         composable<ProductListRoute> {
             val barcode = if (scannerResultTarget == "product_list") scannedBarcode else null
             // Reset after consuming
-            if (barcode != null) {
-                scannedBarcode = null
-                scannerResultTarget = null
-            }
             ProductListScreen(
-                viewModel = productViewModel,
+                viewModel = koinViewModel(),
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddProduct = { navController.navigate(AddProductRoute) },
+                onNavigateToAddProduct = { navController.navigate(AddProductRoute) { launchSingleTop = true } },
                 onNavigateToEditProduct = { prod ->
-                    navController.navigate(EditProductRoute(prod.id, prod.name, prod.barcode, prod.price, prod.stock))
+                    navController.navigate(EditProductRoute(prod.id, prod.name, prod.barcode, prod.price, prod.stock)) { launchSingleTop = true }
                 },
                 onLaunchScanner = {
                     scannerResultTarget = "product_list"
-                    navController.navigate(ScannerRoute)
+                    navController.navigate(ScannerRoute) { launchSingleTop = true }
                 },
-                scannedBarcodeResult = barcode
+                scannedBarcodeResult = barcode,
+                onBarcodeConsumed = { scannedBarcode = null; scannerResultTarget = null }
             )
         }
 
         composable<AddProductRoute> {
             val barcode = if (scannerResultTarget == "add_product") scannedBarcode else null
-            if (barcode != null) {
-                scannedBarcode = null
-                scannerResultTarget = null
-            }
             AddProductScreen(
-                viewModel = productViewModel,
+                viewModel = koinViewModel(),
                 onNavigateBack = { navController.popBackStack() },
                 onLaunchScanner = {
                     scannerResultTarget = "add_product"
-                    navController.navigate(ScannerRoute)
+                    navController.navigate(ScannerRoute) { launchSingleTop = true }
                 },
-                scannedBarcodeResult = barcode
+                scannedBarcodeResult = barcode,
+                onBarcodeConsumed = { scannedBarcode = null; scannerResultTarget = null }
             )
         }
 
@@ -154,14 +152,14 @@ fun AppNavigation() {
             val product = Product(args.id, args.name, args.barcode, args.price, args.stock)
             EditProductScreen(
                 product = product,
-                viewModel = productViewModel,
+                viewModel = koinViewModel(),
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
         composable<ShopDetailsRoute> {
             ShopDetailsScreen(
-                viewModel = shopViewModel,
+                viewModel = koinViewModel(),
                 onNavigateBack = { navController.popBackStack() }
             )
         }

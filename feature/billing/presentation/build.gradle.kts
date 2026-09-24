@@ -17,6 +17,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:domain"))
     implementation(project(":core:presentation"))
     implementation(project(":core:design-system"))
@@ -33,15 +36,15 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.koin.androidx-compose)
+    implementation(libs.koin.androidx.compose)
     
     // CameraX and ML Kit for embedded scanner
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
-    implementation(libs.google-mlkit-barcode-scanning)
+    implementation(libs.google.mlkit.barcode.scanning)
     
     // ZXing for UPI QR generation
-    implementation(libs.zxing-core)
+    implementation(libs.zxing.core)
 }

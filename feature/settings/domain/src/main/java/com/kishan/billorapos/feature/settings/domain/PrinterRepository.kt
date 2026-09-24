@@ -3,18 +3,19 @@ package com.kishan.billorapos.feature.settings.domain
 import com.kishan.billorapos.core.domain.Result
 import com.kishan.billorapos.core.domain.DataError
 import com.kishan.billorapos.core.printer.BluetoothDeviceInfo
-import kotlinx.flow.Flow
+import kotlinx.coroutines.flow.Flow
 
 interface PrinterRepository {
     val savedPrinterMac: Flow<String?>
     val savedPrinterName: Flow<String?>
+    val connectionState: Flow<Boolean>
     val isConnected: Boolean
-    fun getBondedDevices(): List<BluetoothDeviceInfo>
-    fun connect(macAddress: String): Boolean
-    fun disconnect(): Boolean
+    suspend fun getBondedDevices(): List<BluetoothDeviceInfo>
+    suspend fun connect(macAddress: String): Boolean
+    suspend fun disconnect(): Boolean
     suspend fun savePrinter(mac: String, name: String)
     suspend fun clearPrinter()
-    fun printReceipt(
+    suspend fun printReceipt(
         shopName: String,
         address1: String,
         address2: String,
@@ -24,5 +25,5 @@ interface PrinterRepository {
         footer: String,
         timestamp: String
     ): Boolean
-    fun testPrint(shopName: String): Boolean
+    suspend fun testPrint(shopName: String): Boolean
 }

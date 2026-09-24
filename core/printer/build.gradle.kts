@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
 }
 
@@ -14,5 +15,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:domain"))
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.core.ktx)
 }

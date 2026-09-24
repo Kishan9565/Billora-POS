@@ -6,9 +6,10 @@ import com.kishan.billorapos.core.domain.DataError
 import com.kishan.billorapos.core.domain.Product
 import com.kishan.billorapos.core.domain.Result
 import com.kishan.billorapos.feature.product.domain.ProductRepository
-import kotlinx.flow.Flow
-import kotlinx.flow.map
-import kotlinx.flow.first
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CancellationException
 
 class ProductRepositoryImpl(
     private val productDao: ProductDao
@@ -22,8 +23,13 @@ class ProductRepositoryImpl(
 
     override suspend fun addProduct(product: Product): Result<Unit, DataError.Local> {
         return try {
-            productDao.upsert(product.toEntity())
-            Result.Success(Unit)
+            if (productDao.insertIfBarcodeAbsent(product.toEntity())) {
+                Result.Success(Unit)
+            } else {
+                Result.Error(DataError.Local.UNKNOWN, "Product with barcode \"${product.barcode}\" already exists!")
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(DataError.Local.UNKNOWN, e.toString())
         }
@@ -31,8 +37,10 @@ class ProductRepositoryImpl(
 
     override suspend fun updateProduct(product: Product): Result<Unit, DataError.Local> {
         return try {
-            productDao.update(product.toEntity())
-            Result.Success(Unit)
+            if (productDao.update(product.toEntity()) > 0) Result.Success(Unit)
+            else Result.Error(DataError.Local.UNKNOWN, "Product no longer exists")
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(DataError.Local.UNKNOWN, e.toString())
         }
@@ -42,6 +50,8 @@ class ProductRepositoryImpl(
         return try {
             productDao.deleteById(id)
             Result.Success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(DataError.Local.UNKNOWN, e.toString())
         }
@@ -49,13 +59,14 @@ class ProductRepositoryImpl(
 
     override suspend fun getProductByBarcode(barcode: String): Result<Product, DataError.Local> {
         return try {
-            val list = productDao.getAll().first()
-            val matched = list.firstOrNull { it.barcode == barcode }
+            val matched = productDao.getByBarcode(barcode)
             if (matched != null) {
                 Result.Success(matched.toDomain())
             } else {
-                Result.Error(DataError.Local.UNKNOWN, "Product not found")
+                Result.Error(DataError.Local.NOT_FOUND, "Product not found")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.Error(DataError.Local.UNKNOWN, e.toString())
         }

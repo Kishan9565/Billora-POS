@@ -36,12 +36,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Add
+import com.kishan.billorapos.core.designsystem.icons.Remove
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
+import com.kishan.billorapos.core.designsystem.icons.FlashOff
+import com.kishan.billorapos.core.designsystem.icons.FlashOn
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.VideocamOff
+import com.kishan.billorapos.core.designsystem.icons.Videocam
+import com.kishan.billorapos.core.designsystem.icons.VideocamOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,9 +54,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import com.kishan.billorapos.core.presentation.ObserveEvents
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,7 +97,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCheckout: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -104,6 +108,11 @@ fun HomeScreen(
         )
     }
 
+    LifecycleResumeEffect(Unit) {
+        viewModel.onAction(BillingAction.LoadShopDetails)
+        hasCameraPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        onPauseOrDispose { }
+    }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted -> hasCameraPermission = granted }
@@ -115,8 +124,7 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
+    ObserveEvents(viewModel.events) { event ->
             when (event) {
                 is BillingEvent.ShowSnackbar -> {
                     snackbarHostState.showSnackbar(event.message)
@@ -124,10 +132,9 @@ fun HomeScreen(
                 is BillingEvent.NavigateToCheckout -> onNavigateToCheckout()
                 is BillingEvent.NavigateToSettings -> onNavigateToSettings()
             }
-        }
     }
 
-    val cooldownMap = remember { remember { mutableMapOf<String, Instant>() } }
+    val cooldownMap = remember { mutableMapOf<String, Long>() }
 
     @Suppress("DEPRECATION")
     fun triggerVibration() {
@@ -163,78 +170,19 @@ fun HomeScreen(
                     .background(Color.Black)
             ) {
                 if (hasCameraPermission && state.isCameraOn) {
-                    var cameraControl: androidx.camera.core.CameraControl? by remember { mutableStateOf(null) }
-
-                    LaunchedEffect(state.isFlashOn) {
-                        cameraControl?.enableTorch(state.isFlashOn)
+                    com.kishan.billorapos.core.presentation.BarcodePreview(
+                        modifier = Modifier.fillMaxSize(),
+                        torchEnabled = state.isFlashOn
+                    ) { rawValue ->
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        val lastSeen = cooldownMap[rawValue]
+                        if (lastSeen == null || now - lastSeen > 2000L) {
+                            cooldownMap.entries.removeAll { now - it.value > 2000L }
+                            cooldownMap[rawValue] = now
+                            triggerVibration()
+                            viewModel.onAction(BillingAction.OnBarcodeDetected(rawValue))
+                        }
                     }
-
-                    AndroidView(
-                        factory = { ctx ->
-                            val previewView = PreviewView(ctx)
-                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                            cameraProviderFuture.addListener({
-                                val cameraProvider = cameraProviderFuture.get()
-                                val preview = androidx.camera.core.Preview.Builder().build().apply {
-                                    setSurfaceProvider(previewView.surfaceProvider)
-                                }
-
-                                val options = BarcodeScannerOptions.Builder()
-                                    .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
-                                    .build()
-                                val scanner = BarcodeScanning.getClient(options)
-
-                                val analysis = ImageAnalysis.Builder()
-                                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                                    .build()
-
-                                analysis.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                                    val mediaImage = imageProxy.image
-                                    if (mediaImage != null) {
-                                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                                        scanner.process(image)
-                                            .addOnSuccessListener { barcodes ->
-                                                val barcode = barcodes.firstOrNull()
-                                                if (barcode != null) {
-                                                    val rawValue = barcode.rawValue
-                                                    if (rawValue != null) {
-                                                        val now = Instant.now()
-                                                        val lastSeen = cooldownMap[rawValue]
-                                                        if (lastSeen == null || now.isAfter(lastSeen.plusSeconds(2))) {
-                                                            cooldownMap[rawValue] = now
-                                                            triggerVibration()
-                                                            viewModel.onAction(BillingAction.OnBarcodeDetected(rawValue))
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            .addOnCompleteListener {
-                                                imageProxy.close()
-                                            }
-                                    } else {
-                                        imageProxy.close()
-                                    }
-                                }
-
-                                try {
-                                    cameraProvider.unbindAll()
-                                    val camera = cameraProvider.bindToLifecycle(
-                                        lifecycleOwner,
-                                        CameraSelector.DEFAULT_BACK,
-                                        preview,
-                                        analysis
-                                    )
-                                    cameraControl = camera.cameraControl
-                                    cameraControl?.enableTorch(state.isFlashOn)
-                                } catch (e: Exception) {
-                                    // Ignore
-                                }
-                            }, ContextCompat.getMainExecutor(ctx))
-                            previewView
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
-
                     // Overlay Center Box
                     Box(
                         modifier = Modifier
@@ -285,7 +233,7 @@ fun HomeScreen(
                             Icon(imageVector = Icons.Default.VideocamOff, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Camera is turned off", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(text = if (hasCameraPermission) "Camera is turned off" else "Camera permission required", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Turn on your camera to start scanning barcodes and items automatically.",
@@ -299,14 +247,14 @@ fun HomeScreen(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(PrimaryColor)
-                                .clickable { viewModel.onAction(BillingAction.OnToggleCamera) }
+                                .clickable { if (!hasCameraPermission) launcher.launch(Manifest.permission.CAMERA) else viewModel.onAction(BillingAction.OnToggleCamera) }
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(imageVector = Icons.Default.Videocam, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = "Turn on Camera", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(text = if (hasCameraPermission) "Turn on Camera" else "Allow Camera", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -321,7 +269,7 @@ fun HomeScreen(
                     IconButton(
                         onClick = onNavigateToSettings,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(48.dp)
                             .background(Color.Black.copy(alpha = 0.45f), CircleShape)
                             .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
                     ) {
@@ -332,7 +280,7 @@ fun HomeScreen(
                         IconButton(
                             onClick = { viewModel.onAction(BillingAction.OnToggleFlash) },
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .background(Color.Black.copy(alpha = 0.45f), CircleShape)
                                 .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
                         ) {
@@ -345,9 +293,9 @@ fun HomeScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     IconButton(
-                        onClick = { viewModel.onAction(BillingAction.OnToggleCamera) },
+                        onClick = { if (!hasCameraPermission) launcher.launch(Manifest.permission.CAMERA) else viewModel.onAction(BillingAction.OnToggleCamera) },
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(48.dp)
                             .background(Color.Black.copy(alpha = 0.45f), CircleShape)
                             .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
                     ) {
@@ -396,10 +344,10 @@ fun HomeScreen(
                     ) {
                         Column {
                             Text(text = "Scanned Items", fontSize = 18.sp, fontWeight = FontWeight.W600, color = Color.Black)
-                            Text(text = "${state.totalQuantity} items total", fontSize = 12.sp, color = Color.Gray)
+                            Text(text = "${state.totalQuantity} items total", fontSize = 12.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(text = "TOTAL PRICE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray, letterSpacing = 1.2.sp)
+                            Text(text = "TOTAL PRICE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.2.sp)
                             Text(text = "₹${"%.2f".format(state.totalAmount)}", fontSize = 20.sp, fontWeight = FontWeight.Black, color = PrimaryColor)
                         }
                     }
@@ -430,7 +378,7 @@ fun HomeScreen(
                                 Text(
                                     text = "Scanned items will appear here as you scan them with the camera above.",
                                     fontSize = 14.sp,
-                                    color = Color.Gray,
+                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -468,7 +416,7 @@ fun HomeScreen(
                                                     text = "₹${"%.2f".format(item.product.price)}",
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = Color.Gray
+                                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             Row(
@@ -479,9 +427,9 @@ fun HomeScreen(
                                             ) {
                                                 IconButton(
                                                     onClick = { viewModel.onAction(BillingAction.OnQuantityChange(item.product.id, item.quantity - 1)) },
-                                                    modifier = Modifier.size(36.dp)
+                                                    modifier = Modifier.size(48.dp)
                                                 ) {
-                                                    Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                                                    Icon(Icons.Default.Remove, contentDescription = "Decrease quantity", tint = Color.DarkGray)
                                                 }
                                                 Text(
                                                     text = item.quantity.toString(),
@@ -492,9 +440,10 @@ fun HomeScreen(
                                                 )
                                                 IconButton(
                                                     onClick = { viewModel.onAction(BillingAction.OnQuantityChange(item.product.id, item.quantity + 1)) },
-                                                    modifier = Modifier.size(36.dp)
+                                                    enabled = item.quantity < Int.MAX_VALUE,
+                                                    modifier = Modifier.size(48.dp)
                                                 ) {
-                                                    Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                                                    Icon(Icons.Default.Add, contentDescription = "Increase quantity", tint = Color.DarkGray)
                                                 }
                                             }
                                         }

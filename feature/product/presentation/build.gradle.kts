@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
@@ -17,6 +18,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:domain"))
     implementation(project(":core:presentation"))
     implementation(project(":core:design-system"))
@@ -29,12 +33,12 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.koin.androidx-compose)
+    implementation(libs.koin.androidx.compose)
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
-    implementation(libs.google-mlkit-barcode-scanning)
+    implementation(libs.google.mlkit.barcode.scanning)
 }

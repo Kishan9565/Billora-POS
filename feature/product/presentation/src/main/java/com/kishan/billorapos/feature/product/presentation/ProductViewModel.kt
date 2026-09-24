@@ -10,28 +10,43 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProductViewModel(
     private val productRepository: ProductRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
     private val _isLoading = MutableStateFlow(false)
+    private val _isReading = MutableStateFlow(true)
+    private val reload = MutableStateFlow(0)
     private val _errorMessage = MutableStateFlow<String?>(null)
 
-    private val _eventChannel = Channel<ProductEvent>()
+    private val _eventChannel = Channel<ProductEvent>(Channel.BUFFERED)
     val events = _eventChannel.receiveAsFlow()
 
     val state: StateFlow<ProductState> = combine(
-        productRepository.getProducts(),
+        reload.flatMapLatest { productRepository.getProducts()
+            .onStart { _errorMessage.value = null; _isReading.value = true }
+            .onEach { _isReading.value = false }
+            .catch { error ->
+                _errorMessage.value = error.message ?: "Unable to load products"
+                _isReading.value = false
+                emit(emptyList())
+            } },
         _searchQuery,
         _isLoading,
-        _errorMessage
-    ) { products, query, loading, error ->
+        _errorMessage,
+        _isReading
+    ) { products, query, loading, error, reading ->
         val filtered = if (query.isBlank()) {
             products
         } else {
@@ -42,14 +57,18 @@ class ProductViewModel(
         }
         ProductState(
             products = filtered,
-            isLoading = loading,
+            isLoading = loading || reading,
             errorMessage = error,
             searchQuery = query
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProductState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProductState(isLoading = true))
 
     fun onAction(action: ProductAction) {
+        val isMutation = action !is ProductAction.OnSearchQueryChange && action !is ProductAction.RetryLoad
+        if (isMutation && _isLoading.value) return
+        if (isMutation) _isLoading.value = true
         when (action) {
+            ProductAction.RetryLoad -> reload.value++
             is ProductAction.OnSearchQueryChange -> {
                 _searchQuery.value = action.query
             }
@@ -70,9 +89,8 @@ class ProductViewModel(
             is ProductAction.OnAddProduct -> {
                 viewModelScope.launch {
                     _isLoading.value = true
-                    val currentList = state.value.products
-                    if (currentList.any { it.barcode == action.barcode }) {
-                        _eventChannel.send(ProductEvent.ShowSnackbar("Product with barcode \"${action.barcode}\" already exists!", isError = true))
+                    if (action.name.isBlank() || action.barcode.isBlank() || !action.price.isFinite() || action.price < 0) {
+                        _eventChannel.send(ProductEvent.ShowSnackbar("Enter a barcode, name and valid non-negative price", isError = true))
                         _isLoading.value = false
                         return@launch
                     }
@@ -86,7 +104,6 @@ class ProductViewModel(
                     )
                     when (val result = productRepository.addProduct(newProduct)) {
                         is Result.Success -> {
-                            _eventChannel.send(ProductEvent.ShowSnackbar("Product added successfully"))
                             _eventChannel.send(ProductEvent.ProductActionSuccess)
                         }
                         is Result.Error -> {
@@ -99,11 +116,15 @@ class ProductViewModel(
             is ProductAction.OnUpdateProduct -> {
                 viewModelScope.launch {
                     _isLoading.value = true
-                    // TODO(verify): The source spec mentions that editing a product constructs Product without stock argument, which defaults to 0, silently resetting stock to 0.
+                    if (action.product.name.isBlank() || !action.product.price.isFinite() || action.product.price < 0) {
+                        _eventChannel.send(ProductEvent.ShowSnackbar("Enter a name and valid non-negative price", isError = true))
+                        _isLoading.value = false
+                        return@launch
+                    }
+                    // Preserve the existing edit behavior: stock resets to zero.
                     val updated = action.product.copy(stock = 0)
                     when (val result = productRepository.updateProduct(updated)) {
                         is Result.Success -> {
-                            _eventChannel.send(ProductEvent.ShowSnackbar("Product updated successfully"))
                             _eventChannel.send(ProductEvent.ProductActionSuccess)
                         }
                         is Result.Error -> {

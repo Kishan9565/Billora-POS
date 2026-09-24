@@ -20,11 +20,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ChevronRight
+import com.kishan.billorapos.core.designsystem.icons.ChevronRight
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Storefront
+import com.kishan.billorapos.core.designsystem.icons.Storefront
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,9 +37,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import com.kishan.billorapos.core.presentation.ObserveEvents
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -64,17 +68,24 @@ fun SettingsScreen(
     onNavigateToProducts: () -> Unit,
     onNavigateToShopDetails: () -> Unit
 ) {
-    val state by viewModel.state.collectAsState()
-    val shopName by viewModel.shopNameFlow.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val shopName by viewModel.shopNameFlow.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val permissionScope = rememberCoroutineScope()
+    val printerAction = com.kishan.billorapos.core.presentation.rememberPrinterAction(
+        onDenied = { permissionScope.launch { snackbarHostState.showSnackbar("Allow Nearby devices permission in app settings to use the printer.") } },
+        action = { viewModel.onAction(PrinterAction.RefreshPrinters) }
+    )
+    LifecycleResumeEffect(Unit) {
+        viewModel.onAction(PrinterAction.InitPrinter)
+        onPauseOrDispose { }
+    }
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
+    ObserveEvents(viewModel.events) { event ->
             when (event) {
                 is PrinterEvent.ShowSnackbar -> snackbarHostState.showSnackbar(event.message)
             }
-        }
     }
 
     Scaffold(
@@ -99,6 +110,9 @@ fun SettingsScreen(
         ) {
             // Profile Header
             ProfileHeader(shopName = shopName)
+            state.errorMessage?.let { message ->
+                Text(message, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp))
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -139,7 +153,7 @@ fun SettingsScreen(
             ) {
                 PrintDeviceRow(
                     state = state,
-                    onRefresh = { viewModel.onAction(PrinterAction.RefreshPrinters) },
+                    onRefresh = printerAction,
                     onOpenBluetoothSettings = {
                         context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
                     }
@@ -150,7 +164,7 @@ fun SettingsScreen(
                 text = "To connect a new device, tap on the Settings gear to pair in phone's Bluetooth settings, then return and hit Refresh.",
                 fontSize = 11.sp,
                 fontStyle = FontStyle.Italic,
-                color = Color.Gray,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
             )
 
@@ -196,7 +210,7 @@ fun SectionHeader(title: String) {
         text = title,
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.Gray,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.2.sp,
         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
     )
@@ -228,9 +242,9 @@ fun SettingsRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.W600, color = Color.Black)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = subtitle, fontSize = 12.sp, color = Color.Gray)
+            Text(text = subtitle, fontSize = 12.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(imageVector = Icons.AutoMirrored.Filled.ChevronRight, contentDescription = null, tint = Color.LightGray)
+        Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
     }
 }
 
@@ -263,9 +277,9 @@ fun PrintDeviceRow(
                 Text(
                     text = state.savedPrinterName ?: "No printer connected",
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (state.savedPrinterMac != null) {
+                if (state.isConnected) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
@@ -283,12 +297,12 @@ fun PrintDeviceRow(
         if (state.isScanningOrConnecting) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = PrimaryColor)
         } else {
-            IconButton(onClick = onRefresh, modifier = Modifier.size(24.dp)) {
+            IconButton(onClick = onRefresh, modifier = Modifier.size(48.dp)) {
                 Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh", tint = PrimaryColor)
             }
         }
         Spacer(modifier = Modifier.width(8.dp))
-        IconButton(onClick = onOpenBluetoothSettings, modifier = Modifier.size(24.dp)) {
+        IconButton(onClick = onOpenBluetoothSettings, modifier = Modifier.size(48.dp)) {
             Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings", tint = Color.Gray)
         }
     }

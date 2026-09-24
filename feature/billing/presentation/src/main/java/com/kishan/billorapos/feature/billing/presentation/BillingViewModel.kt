@@ -17,8 +17,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CancellationException
+import com.kishan.billorapos.core.domain.totalAmount
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class BillingViewModel(
     private val productRepository: ProductRepository,
@@ -29,7 +32,7 @@ class BillingViewModel(
     private val _state = MutableStateFlow(BillingState())
     val state: StateFlow<BillingState> = _state.asStateFlow()
 
-    private val _eventChannel = Channel<BillingEvent>()
+    private val _eventChannel = Channel<BillingEvent>(Channel.BUFFERED)
     val events = _eventChannel.receiveAsFlow()
 
     init {
@@ -42,10 +45,10 @@ class BillingViewModel(
                 viewModelScope.launch {
                     when (val res = shopRepository.getShop()) {
                         is Result.Success -> {
-                            _state.update { it.copy(shopDetails = res.data) }
+                            _state.update { it.copy(shopDetails = res.data, error = null) }
                         }
                         is Result.Error -> {
-                            _state.update { it.copy(shopDetails = Shop.DEFAULT) }
+                            _state.update { it.copy(shopDetails = null, error = "Unable to load shop details") }
                         }
                     }
                 }
@@ -55,24 +58,27 @@ class BillingViewModel(
                     when (val res = productRepository.getProductByBarcode(action.rawValue)) {
                         is Result.Success -> {
                             val product = res.data
+                            if (!product.price.isFinite() || product.price < 0) {
+                                _eventChannel.send(BillingEvent.ShowSnackbar("Product has an invalid price", isError = true))
+                                return@launch
+                            }
                             _state.update { s ->
                                 val existingIndex = s.cartItems.indexOfFirst { it.product.id == product.id }
                                 val updatedList = s.cartItems.toMutableList()
                                 if (existingIndex != -1) {
                                     val item = updatedList[existingIndex]
+                                    if (item.quantity == Int.MAX_VALUE) return@update s
                                     updatedList[existingIndex] = item.copy(quantity = item.quantity + 1)
                                 } else {
                                     updatedList.add(CartItem(product, 1))
                                 }
-                                s.copy(
-                                    cartItems = updatedList,
-                                    totalAmount = updatedList.sumOf { it.total },
-                                    totalQuantity = updatedList.sumOf { it.quantity }
-                                )
+                                withCart(s, updatedList)
                             }
                         }
                         is Result.Error -> {
-                            _eventChannel.send(BillingEvent.ShowSnackbar("Product not found: ${action.rawValue}", isError = true))
+                            val message = if (res.error == com.kishan.billorapos.core.domain.DataError.Local.NOT_FOUND)
+                                "Product not found: ${action.rawValue}" else "Unable to look up product. Please retry."
+                            _eventChannel.send(BillingEvent.ShowSnackbar(message, isError = true))
                         }
                     }
                 }
@@ -87,22 +93,14 @@ class BillingViewModel(
                         } else {
                             updatedList[index] = updatedList[index].copy(quantity = action.newQty)
                         }
-                        s.copy(
-                            cartItems = updatedList,
-                            totalAmount = updatedList.sumOf { it.total },
-                            totalQuantity = updatedList.sumOf { it.quantity }
-                        )
+                        withCart(s, updatedList)
                     } else s
                 }
             }
             is BillingAction.OnRemoveItem -> {
                 _state.update { s ->
                     val updatedList = s.cartItems.filterNot { it.product.id == action.productId }
-                    s.copy(
-                        cartItems = updatedList,
-                        totalAmount = updatedList.sumOf { it.total },
-                        totalQuantity = updatedList.sumOf { it.quantity }
-                    )
+                    withCart(s, updatedList)
                 }
             }
             is BillingAction.OnToggleCamera -> {
@@ -122,56 +120,74 @@ class BillingViewModel(
                 }
             }
             is BillingAction.PrintReceiptClick -> {
+                if (_state.value.isPrinting) return
+                val receipt = _state.value
+                _state.update { it.copy(isPrinting = true, printSuccess = false) }
                 viewModelScope.launch {
-                    _state.update { it.copy(isPrinting = true, printSuccess = false) }
-                    val shop = _state.value.shopDetails
-                    if (shop == null) {
-                        _eventChannel.send(BillingEvent.ShowSnackbar("Shop details not loaded", isError = true))
+                    try {
+                        val shop = when (val result = shopRepository.getShop()) {
+                            is Result.Success -> result.data
+                            is Result.Error -> null
+                        }
+                        if (shop == null) {
+                            _eventChannel.send(BillingEvent.ShowSnackbar("Shop details not loaded", isError = true))
+                            return@launch
+                        }
+
+                        if (!printerRepository.isConnected) {
+                            val savedMac = printerRepository.savedPrinterMac.first()
+                            if (savedMac == null) {
+                                _eventChannel.send(BillingEvent.ShowSnackbar("Printer not connected & no saved printer found!", isError = true))
+                                return@launch
+                            }
+                            val connectRes = printerRepository.connect(savedMac)
+                            if (!connectRes) {
+                                _eventChannel.send(BillingEvent.ShowSnackbar("Failed to auto-connect to printer!", isError = true))
+                                return@launch
+                            }
+                        }
+
+                        val itemsForPrinter = receipt.cartItems.map {
+                            Triple(it.product.name, it.product.price, it.quantity)
+                        }
+                        val nowStr = SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault()).format(Date())
+
+                        val printRes = printerRepository.printReceipt(
+                            shopName = shop.name,
+                            address1 = shop.addressLine1,
+                            address2 = shop.addressLine2,
+                            phone = shop.phoneNumber,
+                            items = itemsForPrinter,
+                            total = receipt.totalAmount,
+                            footer = shop.footerText,
+                            timestamp = nowStr
+                        )
+
+                        if (printRes) {
+                            _state.update { it.copy(printSuccess = true) }
+                            _eventChannel.send(BillingEvent.ShowSnackbar("Printed successfully"))
+                        } else {
+                            _eventChannel.send(BillingEvent.ShowSnackbar("Print failed: Printer error", isError = true))
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _eventChannel.send(BillingEvent.ShowSnackbar("Print failed: ${e.message ?: "Printer unavailable"}", isError = true))
+                    } finally {
                         _state.update { it.copy(isPrinting = false) }
-                        return@launch
                     }
-
-                    if (!printerRepository.isConnected) {
-                        val savedMac = printerRepository.savedPrinterMac.first()
-                        if (savedMac == null) {
-                            _eventChannel.send(BillingEvent.ShowSnackbar("Printer not connected & no saved printer found!", isError = true))
-                            _state.update { it.copy(isPrinting = false) }
-                            return@launch
-                        }
-                        val connectRes = printerRepository.connect(savedMac)
-                        if (!connectRes) {
-                            _eventChannel.send(BillingEvent.ShowSnackbar("Failed to auto-connect to printer!", isError = true))
-                            _state.update { it.copy(isPrinting = false) }
-                            return@launch
-                        }
-                    }
-
-                    val itemsForPrinter = _state.value.cartItems.map {
-                        Triple(it.product.name, it.product.price, it.quantity)
-                    }
-                    val formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm a")
-                    val nowStr = LocalDateTime.now().format(formatter)
-
-                    val printRes = printerRepository.printReceipt(
-                        shopName = shop.name,
-                        address1 = shop.addressLine1,
-                        address2 = shop.addressLine2,
-                        phone = shop.phoneNumber,
-                        items = itemsForPrinter,
-                        total = _state.value.totalAmount,
-                        footer = shop.footerText,
-                        timestamp = nowStr
-                    )
-
-                    if (printRes) {
-                        _state.update { it.copy(printSuccess = true) }
-                        _eventChannel.send(BillingEvent.ShowSnackbar("Printed successfully"))
-                    } else {
-                        _eventChannel.send(BillingEvent.ShowSnackbar("Print failed: Printer error", isError = true))
-                    }
-                    _state.update { it.copy(isPrinting = false) }
                 }
             }
         }
+    }
+
+    private fun withCart(current: BillingState, items: List<CartItem>): BillingState {
+        val total = totalAmount(items.map { it.product.price to it.quantity })
+        val quantity = items.sumOf { it.quantity.toLong() }
+        if (!total.isFinite() || quantity > Int.MAX_VALUE) {
+            _eventChannel.trySend(BillingEvent.ShowSnackbar("Amount or quantity is too large", isError = true))
+            return current
+        }
+        return current.copy(cartItems = items, totalAmount = total, totalQuantity = quantity.toInt())
     }
 }

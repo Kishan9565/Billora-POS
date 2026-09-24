@@ -3,7 +3,7 @@ package com.kishan.billorapos.feature.product.domain
 import com.kishan.billorapos.core.domain.Product
 import com.kishan.billorapos.core.domain.Result
 import com.kishan.billorapos.core.domain.DataError
-import kotlinx.flow.Flow
+import kotlinx.coroutines.flow.Flow
 
 interface ProductRepository {
     fun getProducts(): Flow<List<Product>>

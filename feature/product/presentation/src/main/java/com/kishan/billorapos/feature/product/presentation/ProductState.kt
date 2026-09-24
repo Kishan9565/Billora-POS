@@ -10,6 +10,7 @@ data class ProductState(
 )
 
 sealed interface ProductAction {
+    object RetryLoad : ProductAction
     data class OnSearchQueryChange(val query: String) : ProductAction
     data class OnDeleteProductClick(val id: String) : ProductAction
     data class OnAddProduct(val name: String, val barcode: String, val price: Double) : ProductAction
