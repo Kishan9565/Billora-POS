@@ -23,7 +23,8 @@ interface PrinterRepository {
         items: List<Triple<String, Double, Int>>,
         total: Double,
         footer: String,
-        timestamp: String
+        timestamp: String,
+        discountAmount: Double = 0.0
     ): Boolean
     suspend fun testPrint(shopName: String): Boolean
 }

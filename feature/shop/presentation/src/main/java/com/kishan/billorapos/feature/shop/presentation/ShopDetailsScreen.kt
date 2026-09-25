@@ -55,7 +55,8 @@ import com.kishan.billorapos.core.designsystem.PrimaryColor
 fun ShopDetailsScreen(
     viewModel: ShopViewModel,
     onNavigateBack: () -> Unit,
-    onboarding: Boolean = false
+    onboarding: Boolean = false,
+    addNew: Boolean = false
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -71,7 +72,7 @@ fun ShopDetailsScreen(
     var isInitialized by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(state.shop) {
-        val s = state.shop
+        val s = if (addNew) com.kishan.billorapos.core.domain.Shop.EMPTY else state.shop
         if (s != null && !isInitialized) {
             name = s.name
             address1 = s.addressLine1
@@ -99,7 +100,7 @@ fun ShopDetailsScreen(
     var phoneError by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(modifier = Modifier.imePadding(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (onboarding) "Set up your shop" else "Shop Details", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
@@ -107,7 +108,7 @@ fun ShopDetailsScreen(
                 actions = {
                     if (onboarding) TextButton(enabled = !state.isLoading, onClick = { viewModel.onAction(ShopAction.SkipSetup) }) { Text("Skip") }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
@@ -142,7 +143,7 @@ fun ShopDetailsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         isError = nameError,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant, focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true
                     )
@@ -157,7 +158,7 @@ fun ShopDetailsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         isError = address1Error,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant, focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true
                     )
@@ -171,7 +172,7 @@ fun ShopDetailsScreen(
                         placeholder = { Text("City and postal code", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant, focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         singleLine = true
                     )
@@ -186,7 +187,7 @@ fun ShopDetailsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         isError = phoneError,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant, focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         singleLine = true
                     )
@@ -200,7 +201,7 @@ fun ShopDetailsScreen(
                         placeholder = { Text("yourshop@bank", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant, focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                         singleLine = true
                     )
 
@@ -208,7 +209,7 @@ fun ShopDetailsScreen(
 
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         InputLabel(text = "Receipt Footer Text", modifier = Modifier.weight(1f))
-                        Text(text = "Max 60 chars", color = Color.DarkGray, fontSize = 11.sp)
+                        Text(text = "Max 60 chars", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                     OutlinedTextField(
                         value = footerText,
@@ -216,7 +217,7 @@ fun ShopDetailsScreen(
                         placeholder = { Text("Thank you, Visit again!!!", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = Color.LightGray, focusedContainerColor = Color.White, unfocusedContainerColor = Color.White),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryColor, unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant, focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                         maxLines = 2,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
                     )
@@ -233,7 +234,7 @@ fun ShopDetailsScreen(
                             if (phone.isBlank()) { phoneError = true; hasError = true }
 
                             if (!hasError) {
-                                viewModel.onAction(ShopAction.SaveShop(name, address1, address2, phone, upiId, footerText, completeSetup = onboarding))
+                                viewModel.onAction(ShopAction.SaveShop(name, address1, address2, phone, upiId, footerText, completeSetup = onboarding, addNew = addNew))
                             }
                         },
                         label = if (onboarding) "Save & Continue" else "Save Details", isLoading = state.isLoading

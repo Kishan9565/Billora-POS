@@ -64,6 +64,7 @@ fun AddProductScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
+    var stock by rememberSaveable { mutableStateOf("0") }
 
     var barcode by rememberSaveable { mutableStateOf("") }
     var productName by rememberSaveable { mutableStateOf("") }
@@ -93,16 +94,16 @@ fun AddProductScreen(
     }
 
     Scaffold(modifier = Modifier.imePadding(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Add Product", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black) },
+                title = { Text("Add Product", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor, modifier = Modifier.size(28.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
@@ -134,8 +135,8 @@ fun AddProductScreen(
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = PrimaryColor,
-                            unfocusedBorderColor = Color.LightGray,
-                            focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                            unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+                            focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
                             errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                         ),
                         isError = barcodeError != null,
@@ -176,8 +177,8 @@ fun AddProductScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                        unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
                         errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     ),
                     isError = nameError != null,
@@ -199,13 +200,13 @@ fun AddProductScreen(
                         priceError = null
                     },
                     placeholder = { Text("0.00", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
-                    prefix = { Text("₹ ", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.Black)) },
+                    prefix = { Text("₹ ", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                        unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
                         errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     ),
                     isError = priceError != null,
@@ -216,6 +217,13 @@ fun AddProductScreen(
                     Text(text = priceError ?: "", color = androidx.compose.material3.MaterialTheme.colorScheme.error, fontSize = 12.dp.value.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
                 }
 
+                Spacer(Modifier.height(24.dp))
+                InputLabel(text = "Stock")
+                OutlinedTextField(value = stock, onValueChange = { stock = it },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = stock.toIntOrNull() == null || (stock.toIntOrNull() ?: -1) < 0,
+                    supportingText = { Text("Enter a non-negative whole number") })
                 Spacer(modifier = Modifier.height(100.dp))
             }
 
@@ -231,8 +239,8 @@ fun AddProductScreen(
                         barcodeError = validation.barcodeError
                         nameError = validation.nameError
                         priceError = validation.priceError
-                        if (validation.isValid) {
-                            viewModel.onAction(ProductAction.OnAddProduct(productName, barcode, price.toDouble()))
+                        if (validation.isValid && stock.toIntOrNull() != null && stock.toInt() >= 0) {
+                            viewModel.onAction(ProductAction.OnAddProduct(productName, barcode, price.toDouble(), stock.toInt()))
                         }
                     },
                     label = "Add Product", isLoading = state.isLoading

@@ -9,7 +9,9 @@ data class Shop(
     val addressLine2: String = "",
     val phoneNumber: String = "",
     val upiId: String = "",
-    val footerText: String = ""
+    val footerText: String = "",
+    val id: String = "",
+    val isActive: Boolean = false
 ) {
     companion object {
         val EMPTY = Shop()

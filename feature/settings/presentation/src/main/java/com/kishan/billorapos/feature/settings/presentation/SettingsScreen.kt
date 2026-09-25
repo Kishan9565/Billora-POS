@@ -46,6 +46,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,11 +71,22 @@ fun SettingsScreen(
     viewModel: PrinterViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToProducts: () -> Unit,
-    onNavigateToShopDetails: () -> Unit
+    onNavigateToShopDetails: () -> Unit,
+    onNavigateToReports: () -> Unit,
+    onNavigateToKhata: () -> Unit,
+    management: ManagementViewModel = org.koin.androidx.compose.koinViewModel()
 ) {
+    val managementState by management.state.collectAsStateWithLifecycle()
+    var thresholdInput by remember { mutableStateOf<String?>(null) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val shopName by viewModel.shopNameFlow.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    ObserveEvents(management.events) { if (it is ManagementEvent.Message) snackbarHostState.showSnackbar(it.text) }
+    if (thresholdInput != null) AlertDialog(onDismissRequest = { thresholdInput = null }, title = { Text("Low-stock threshold") },
+        text = { OutlinedTextField(thresholdInput.orEmpty(), { thresholdInput = it }, singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)) },
+        confirmButton = { TextButton(onClick = { management.onAction(ManagementAction.Threshold(thresholdInput.orEmpty())); thresholdInput = null }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = { thresholdInput = null }) { Text("Cancel") } })
     val permissionScope = rememberCoroutineScope()
     val printerAction = com.kishan.billorapos.core.presentation.rememberPrinterAction(
         onDenied = { permissionScope.launch { snackbarHostState.showSnackbar("Allow Nearby devices permission in app settings to use the printer.") } },
@@ -89,16 +105,16 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black) },
+                title = { Text("Settings", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor, modifier = Modifier.size(28.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
@@ -122,22 +138,25 @@ fun SettingsScreen(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFFF2F2F7), RoundedCornerShape(12.dp))
-                    .background(Color.White)
+                    .border(1.dp, androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
             ) {
                 SettingsRow(
                     title = "Products",
-                    subtitle = "Manage stock and barcodes",
+                    subtitle = if (managementState.lowStockCount > 0) "${managementState.lowStockCount} products need stock" else "Manage stock and barcodes",
                     icon = Icons.Default.Settings, // qr_code_scanner equivalent
                     onClick = onNavigateToProducts
                 )
-                HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = Color(0xFFF8FAFC))
+                HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
                 SettingsRow(
-                    title = "Shop Details",
-                    subtitle = "Edit business info & address",
+                    title = "Shop Profile",
+                    subtitle = shopName,
                     icon = Icons.Default.Storefront,
                     onClick = onNavigateToShopDetails
                 )
+                SettingsRow("Reports", "Sales, revenue and top products", Icons.Default.Settings, onNavigateToReports)
+                SettingsRow("Udhaar / Khata", "Customer balances and payments", Icons.Default.Storefront, onNavigateToKhata)
+                SettingsRow("Low-stock threshold", "Alert at ${managementState.threshold} or fewer", Icons.Default.Settings) { thresholdInput = managementState.threshold.toString() }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -148,8 +167,8 @@ fun SettingsScreen(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, Color(0xFFF2F2F7), RoundedCornerShape(12.dp))
-                    .background(Color.White)
+                    .border(1.dp, androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
             ) {
                 PrintDeviceRow(
                     state = state,
@@ -168,6 +187,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
             )
 
+            if (state.savedPrinterName == null) com.kishan.billorapos.core.designsystem.EmptyState(
+                Icons.Default.Settings, "No printer connected", "Pair a Bluetooth printer, then tap Refresh.", Modifier.height(280.dp))
             Spacer(modifier = Modifier.height(48.dp))
         }
     }
@@ -186,7 +207,7 @@ fun ProfileHeader(shopName: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(com.kishan.billorapos.core.designsystem.BilloraGradients.PrimaryVertical)
             .padding(vertical = 32.dp, horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -200,7 +221,7 @@ fun ProfileHeader(shopName: String) {
             Text(text = initials, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
         Spacer(modifier = Modifier.height(16.dp))
-        Text(text = shopName.uppercase(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+        Text(text = shopName.uppercase(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary)
     }
 }
 
@@ -240,11 +261,11 @@ fun SettingsRow(
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.W600, color = Color.Black)
+            Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.W600, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(2.dp))
             Text(text = subtitle, fontSize = 12.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
+        Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -271,7 +292,7 @@ fun PrintDeviceRow(
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = "Print Device", fontSize = 14.sp, fontWeight = FontWeight.W600, color = Color.Black)
+            Text(text = "Print Device", fontSize = 14.sp, fontWeight = FontWeight.W600, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

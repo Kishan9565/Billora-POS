@@ -17,6 +17,8 @@ import com.kishan.billorapos.feature.shop.data.ShopRepositoryImpl
 import com.kishan.billorapos.feature.shop.domain.ShopRepository
 import com.kishan.billorapos.feature.shop.presentation.ShopViewModel
 import org.koin.android.ext.koin.androidContext
+import com.kishan.billorapos.feature.settings.presentation.ManagementViewModel
+import com.kishan.billorapos.feature.shop.presentation.ShopProfilesViewModel
 import org.koin.androidx.viewmodel.dsl.viewModelOf
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.singleOf
@@ -34,10 +36,15 @@ class BilloraApp : Application() {
                     androidContext(),
                     AppDatabase::class.java,
                     "billora_pos.db"
-                ).build()
+                ).addMigrations(com.kishan.billorapos.core.database.MIGRATION_1_2).build()
             }
             single { get<AppDatabase>().productDao() }
             single { get<AppDatabase>().shopDao() }
+            single { get<AppDatabase>().saleDao() }
+            single { get<AppDatabase>().customerDao() }
+            single<com.kishan.billorapos.core.domain.SalesRepository> { com.kishan.billorapos.core.data.SalesRepositoryImpl(get()) }
+            single<com.kishan.billorapos.core.domain.CustomerRepository> { com.kishan.billorapos.core.data.CustomerRepositoryImpl(get()) }
+            single<com.kishan.billorapos.core.domain.PosPreferences> { com.kishan.billorapos.core.data.PosPreferencesImpl(get()) }
 
             // DataStore / Core Printer
             singleOf(::PrinterDataStore)
@@ -55,6 +62,8 @@ class BilloraApp : Application() {
             viewModelOf(::StartupViewModel)
             viewModelOf(::PrinterViewModel)
             viewModelOf(::BillingViewModel)
+            viewModelOf(::ManagementViewModel)
+            viewModelOf(::ShopProfilesViewModel)
         }
 
         startKoin {

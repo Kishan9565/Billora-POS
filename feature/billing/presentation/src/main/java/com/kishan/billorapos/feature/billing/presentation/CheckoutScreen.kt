@@ -1,6 +1,9 @@
 package com.kishan.billorapos.feature.billing.presentation
 
 import android.graphics.Bitmap
+import androidx.compose.material3.*
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -78,6 +81,7 @@ fun CheckoutScreen(
     }
 
     fun handleBack() {
+        if (state.isPrinting || state.isExporting) return
         viewModel.onAction(BillingAction.OnClearCart)
         onNavigateHomePop()
     }
@@ -96,16 +100,16 @@ fun CheckoutScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Checkout", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) },
+                title = { Text("Checkout", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { handleBack() }) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor, modifier = Modifier.size(28.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
@@ -115,8 +119,8 @@ fun CheckoutScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item(key = "header") {
-                Row(Modifier.fillMaxWidth().background(Color(0xFFF8FAFC)).padding(12.dp)) {
-                    Text("PRODUCT NAME", modifier = Modifier.weight(1f), fontSize = 11.sp, color = Color.DarkGray)
+                Row(Modifier.fillMaxWidth().background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant).padding(12.dp)) {
+                    Text("PRODUCT NAME", modifier = Modifier.weight(1f), fontSize = 11.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("PRICE", modifier = Modifier.weight(0.55f), textAlign = TextAlign.End, fontSize = 11.sp)
                     Text("TOTAL", modifier = Modifier.weight(0.65f), textAlign = TextAlign.End, fontSize = 11.sp)
                 }
@@ -128,7 +132,7 @@ fun CheckoutScreen(
                         Text("\u20B9${"%.2f".format(item.product.price)}", modifier = Modifier.weight(0.55f), textAlign = TextAlign.End, fontSize = 12.sp)
                         Text("\u20B9${"%.2f".format(item.total)}", modifier = Modifier.weight(0.65f), textAlign = TextAlign.End, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
-                    HorizontalDivider(color = Color(0xFFE5E5EA))
+                    HorizontalDivider(color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
                 }
             }
             if (state.error != null) {
@@ -138,9 +142,9 @@ fun CheckoutScreen(
                 }
             }
             val upiId = state.shopDetails?.upiId.orEmpty()
-            if (upiId.isNotEmpty()) {
+            if (upiId.isNotEmpty() && state.paymentMethod == "UPI") {
                 item(key = "payment") {
-                    Column(Modifier.fillMaxWidth().background(Color.White).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.fillMaxWidth().background(androidx.compose.material3.MaterialTheme.colorScheme.surface).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Scan to Pay", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(12.dp))
                         val uri = com.kishan.billorapos.feature.billing.domain.paymentUri(upiId, state.shopDetails?.name.orEmpty(), state.totalAmount)
@@ -157,41 +161,29 @@ fun CheckoutScreen(
                     }
                 }
             }
+            item(key = "options") { CheckoutOptions(state, viewModel::onAction) }
             item(key = "total") {
-                Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("GRAND TOTAL", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                if (state.discountAmount > 0) {
+                    Text("Subtotal: ₹${"%.2f".format(state.subtotal)}")
+                    Text("Discount: -₹${"%.2f".format(state.discountAmount)}")
+                }
+                Row(Modifier.fillMaxWidth().background(com.kishan.billorapos.core.designsystem.BilloraGradients.Checkout, RoundedCornerShape(16.dp)).padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("GRAND TOTAL", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("\u20B9${"%.2f".format(state.totalAmount)}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 }
             }
             item(key = "pdf") {
-                PrimaryButton(label = "Save as PDF", isLoading = exporting, onPressed = {
-                    val receipt = state
-                    val shop = receipt.shopDetails
-                    if (!exporting) {
-                        exporting = true
-                        permissionScope.launch {
-                            try {
-                                check(shop != null) { "Shop details not loaded. Please retry." }
-                                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    com.kishan.billorapos.core.printer.ReceiptPdf.create(
-                                        context.applicationContext, shop,
-                                        receipt.cartItems.map { Triple(it.product.name, it.product.price, it.quantity) },
-                                        receipt.totalAmount,
-                                        java.text.SimpleDateFormat("dd-MM-yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
-                                    )
-                                }
-                                com.kishan.billorapos.core.presentation.shareFile(context, file, "application/pdf")
-                            } catch (e: kotlinx.coroutines.CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(e.message ?: "Unable to save PDF")
-                            } finally { exporting = false }
-                        }
-                    }
-                })
+                PrimaryButton(label = "Save / Share PDF", isLoading = state.isExporting,
+                    enabled = !state.isPrinting, onPressed = { viewModel.exportPdf(context.applicationContext) })
+            }
+            if (com.kishan.billorapos.core.presentation.isWhatsAppAvailable(context)) {
+                item(key = "whatsapp") {
+                    OutlinedButton(onClick = { viewModel.exportPdf(context.applicationContext, true) },
+                        enabled = !state.isPrinting && !state.isExporting, modifier = Modifier.fillMaxWidth()) { Text("Share PDF on WhatsApp") }
+                }
             }
             item(key = "print") {
-                PrimaryButton(onPressed = printerAction, label = "Print Receipt", icon = Icons.Default.Print, isLoading = state.isPrinting)
+                PrimaryButton(onPressed = printerAction, label = "Print Receipt", icon = Icons.Default.Print, isLoading = state.isPrinting, enabled = !state.isExporting)
             }
         }
     }
@@ -212,4 +204,52 @@ private fun generateQrCode(text: String): Bitmap? {
     } catch (e: Exception) {
         null
     }
+}
+
+@Composable
+private fun CheckoutOptions(state: BillingState, action: (BillingAction) -> Unit) {
+    var discountDialog by rememberSaveable { mutableStateOf(false) }
+    var discount by rememberSaveable { mutableStateOf("") }
+    var percent by rememberSaveable { mutableStateOf(false) }
+    var addCustomer by rememberSaveable { mutableStateOf(false) }
+    var name by rememberSaveable { mutableStateOf("") }
+    var phone by rememberSaveable { mutableStateOf("") }
+    val enabled = !state.saleRecorded && !state.isPrinting && !state.isExporting
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Payment method", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("CASH", "UPI", "CREDIT").forEach { method ->
+                FilterChip(selected = state.paymentMethod == method, enabled = enabled,
+                    onClick = { action(BillingAction.PaymentMethod(method)) }, label = { Text(method.lowercase().replaceFirstChar { it.uppercase() }) })
+            }
+        }
+        if (state.paymentMethod == "CREDIT") {
+            LaunchedEffect(Unit) { action(BillingAction.SearchCustomers("")) }
+            Text(state.customer?.let { "Customer: ${it.name}" } ?: "Choose a customer")
+            OutlinedTextField(state.customerQuery, { action(BillingAction.SearchCustomers(it)) }, enabled = enabled,
+                label = { Text("Search name or phone") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            state.customers.take(8).forEach { customer ->
+                TextButton(enabled = enabled, onClick = { action(BillingAction.SelectCustomer(customer)) }) {
+                    Text("${customer.name}  ${customer.phoneNumber.orEmpty()}")
+                }
+            }
+            TextButton(enabled = enabled, onClick = { addCustomer = true }) { Text("+ New customer") }
+        }
+        TextButton(enabled = enabled, onClick = { discountDialog = true }) { Text("Apply Discount") }
+        if (state.saleRecorded) Text("Sale recorded • Start a new cart to change this sale", color = MaterialTheme.colorScheme.primary)
+    }
+    if (discountDialog) AlertDialog(onDismissRequest = { discountDialog = false }, title = { Text("Apply Discount") },
+        text = { Column {
+            Row { FilterChip(!percent, { percent = false }, label = { Text("Flat ₹") }); Spacer(Modifier.width(8.dp)); FilterChip(percent, { percent = true }, label = { Text("Percent %") }) }
+            OutlinedTextField(discount, { discount = it }, label = { Text(if (percent) "Percentage" else "Amount") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
+        } }, confirmButton = { TextButton(onClick = { action(BillingAction.ApplyDiscount(discount, percent)); discountDialog = false }) { Text("Apply") } },
+        dismissButton = { TextButton(onClick = { discountDialog = false }) { Text("Cancel") } })
+    if (addCustomer) AlertDialog(onDismissRequest = { addCustomer = false }, title = { Text("New customer") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(name, { name = it }, label = { Text("Name (required)") }, singleLine = true)
+            OutlinedTextField(phone, { phone = it }, label = { Text("Phone (optional)") }, singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone))
+        } }, confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { action(BillingAction.AddCustomer(name, phone)); addCustomer = false; name = ""; phone = "" }) { Text("Add") } },
+        dismissButton = { TextButton(onClick = { addCustomer = false }) { Text("Cancel") } })
 }

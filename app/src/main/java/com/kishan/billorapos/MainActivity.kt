@@ -47,15 +47,16 @@ import org.koin.androidx.compose.koinViewModel
     val price: Double,
     val stock: Int
 )
+@Serializable object ReportsRoute
+@Serializable object KhataRoute
+@Serializable object ShopProfilesRoute
+@Serializable object AddShopRoute
 @Serializable object ShopDetailsRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.DKGRAY),
-            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.WHITE, android.graphics.Color.DKGRAY)
-        )
+        enableEdgeToEdge()
         setContent {
             BilloraPOSTheme {
                 AppNavigation()
@@ -141,7 +142,9 @@ fun AppNavigation() {
                 viewModel = printerViewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProducts = { navController.navigate(ProductListRoute) { launchSingleTop = true } },
-                onNavigateToShopDetails = { navController.navigate(ShopDetailsRoute) { launchSingleTop = true } }
+                onNavigateToShopDetails = { navController.navigate(ShopProfilesRoute) { launchSingleTop = true } },
+                onNavigateToReports = { navController.navigate(ReportsRoute) },
+                onNavigateToKhata = { navController.navigate(KhataRoute) }
             )
         }
 
@@ -188,6 +191,20 @@ fun AppNavigation() {
             )
         }
 
+        composable<ReportsRoute> {
+            com.kishan.billorapos.feature.settings.presentation.SalesReportScreen(koinViewModel()) { navController.popBackStack() }
+        }
+        composable<KhataRoute> {
+            com.kishan.billorapos.feature.settings.presentation.KhataScreen(koinViewModel()) { navController.popBackStack() }
+        }
+        composable<ShopProfilesRoute> {
+            com.kishan.billorapos.feature.shop.presentation.ShopProfilesScreen(koinViewModel(),
+                onBack = { navController.popBackStack() }, onAdd = { navController.navigate(AddShopRoute) },
+                onEdit = { navController.navigate(ShopDetailsRoute) })
+        }
+        composable<AddShopRoute> {
+            ShopDetailsScreen(koinViewModel(), onNavigateBack = { navController.popBackStack() }, addNew = true)
+        }
         composable<ShopDetailsRoute> {
             ShopDetailsScreen(
                 viewModel = koinViewModel(),

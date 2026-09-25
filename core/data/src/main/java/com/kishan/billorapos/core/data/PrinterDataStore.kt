@@ -9,7 +9,19 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "printer_settings")
 
+class PosPreferencesImpl(private val context: Context) : com.kishan.billorapos.core.domain.PosPreferences {
+    private val threshold = androidx.datastore.preferences.core.intPreferencesKey("low_stock_threshold")
+    override val lowStockThreshold = context.dataStore.data.map { it[threshold] ?: 5 }
+    override suspend fun setLowStockThreshold(value: Int) {
+        require(value >= 0)
+        context.dataStore.edit { it[threshold] = value }
+    }
+}
+
 class ShopSetupDataStore(private val context: Context) {
+    private val activeId = stringPreferencesKey("active_shop_id")
+    val activeShopId = context.dataStore.data.map { it[activeId] }
+    suspend fun selectShop(id: String) { context.dataStore.edit { it[activeId] = id } }
     private val setupComplete = androidx.datastore.preferences.core.booleanPreferencesKey("shop_setup_complete")
     val isComplete: Flow<Boolean> = context.dataStore.data.map { it[setupComplete] ?: false }
     suspend fun complete() { context.dataStore.edit { it[setupComplete] = true } }

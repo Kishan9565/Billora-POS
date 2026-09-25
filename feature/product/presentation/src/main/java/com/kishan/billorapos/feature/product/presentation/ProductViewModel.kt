@@ -27,8 +27,10 @@ import kotlinx.coroutines.CancellationException
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProductViewModel(
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    preferences: com.kishan.billorapos.core.domain.PosPreferences
 ) : ViewModel() {
+    val lowStockThreshold = preferences.lowStockThreshold.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 5)
 
     private val _searchQuery = MutableStateFlow("")
     private val _isLoading = MutableStateFlow(false)
@@ -114,7 +116,7 @@ class ProductViewModel(
             is ProductAction.OnAddProduct -> {
                 viewModelScope.launch {
                     _isLoading.value = true
-                    if (!validateProduct(action.name, action.barcode, action.price.toString()).isValid) {
+                    if (action.stock < 0 || !validateProduct(action.name, action.barcode, action.price.toString()).isValid) {
                         _eventChannel.send(ProductEvent.ShowSnackbar("Enter a barcode, name and valid non-negative price", isError = true))
                         _isLoading.value = false
                         return@launch
@@ -125,7 +127,7 @@ class ProductViewModel(
                         name = action.name,
                         barcode = action.barcode,
                         price = action.price,
-                        stock = 0
+                        stock = action.stock
                     )
                     when (val result = productRepository.addProduct(newProduct)) {
                         is Result.Success -> {
@@ -141,13 +143,12 @@ class ProductViewModel(
             is ProductAction.OnUpdateProduct -> {
                 viewModelScope.launch {
                     _isLoading.value = true
-                    if (action.product.name.isBlank() || !action.product.price.isFinite() || action.product.price < 0) {
+                    if (action.product.stock < 0 || action.product.name.isBlank() || !action.product.price.isFinite() || action.product.price < 0) {
                         _eventChannel.send(ProductEvent.ShowSnackbar("Enter a name and valid non-negative price", isError = true))
                         _isLoading.value = false
                         return@launch
                     }
-                    // Preserve the existing edit behavior: stock resets to zero.
-                    val updated = action.product.copy(stock = 0)
+                    val updated = action.product
                     when (val result = productRepository.updateProduct(updated)) {
                         is Result.Success -> {
                             _eventChannel.send(ProductEvent.ProductActionSuccess)

@@ -18,7 +18,8 @@ sealed interface ShopAction {
         val phoneNumber: String,
         val upiId: String,
         val footerText: String,
-        val completeSetup: Boolean = false
+        val completeSetup: Boolean = false,
+        val addNew: Boolean = false
     ) : ShopAction
 }
 

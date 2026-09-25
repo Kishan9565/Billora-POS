@@ -160,7 +160,7 @@ fun HomeScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         BoxWithConstraints(
             modifier = Modifier
@@ -228,7 +228,7 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF1E293B)),
+                            .background(com.kishan.billorapos.core.designsystem.BilloraGradients.Slate),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
@@ -330,7 +330,7 @@ fun HomeScreen(
                         ambientColor = Color.Black.copy(alpha = 0.26f),
                         spotColor = Color.Black.copy(alpha = 0.26f)
                     )
-                    .background(Color.White, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Drag handle
@@ -351,45 +351,22 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = "Scanned Items", fontSize = 18.sp, fontWeight = FontWeight.W600, color = Color.Black)
+                            Text(text = "Scanned Items", fontSize = 18.sp, fontWeight = FontWeight.W600, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
                             Text(text = "${state.totalQuantity} items total", fontSize = 12.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(text = "TOTAL PRICE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.2.sp)
-                            Text(text = "₹${"%.2f".format(state.totalAmount)}", fontSize = 20.sp, fontWeight = FontWeight.Black, color = PrimaryColor)
+                            Text(text = "â‚¹${"%.2f".format(state.totalAmount)}", fontSize = 20.sp, fontWeight = FontWeight.Black, color = PrimaryColor)
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.fillMaxWidth(), color = Color.LightGray.copy(alpha = 0.5f))
+                    HorizontalDivider(modifier = Modifier.fillMaxWidth(), color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                     // Cart List
                     Box(modifier = Modifier.weight(1f)) {
                         if (state.cartItems.isEmpty()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 40.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .background(Color(0xFFF2F2F7), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("🧺", fontSize = 40.sp)
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(text = "List is empty", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Scanned items will appear here as you scan them with the camera above.",
-                                    fontSize = 14.sp,
-                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                            com.kishan.billorapos.core.designsystem.EmptyState(Icons.Default.Add,
+                                "Your cart is empty", "Scan a product to start a sale.")
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -398,9 +375,9 @@ fun HomeScreen(
                             ) {
                                 items(state.cartItems, key = { it.product.id }) { item ->
                                     Card(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth().animateItem().shadow(2.dp, RoundedCornerShape(12.dp), ambientColor = PrimaryColor.copy(alpha = 0.15f), spotColor = PrimaryColor.copy(alpha = 0.15f)),
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                                        colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                                     ) {
                                         Row(
@@ -415,13 +392,13 @@ fun HomeScreen(
                                                     text = item.product.name,
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.W600,
-                                                    color = Color.Black,
+                                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
                                                     maxLines = 2,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
-                                                    text = "₹${"%.2f".format(item.product.price)}",
+                                                    text = "â‚¹${"%.2f".format(item.product.price)}",
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
@@ -430,28 +407,24 @@ fun HomeScreen(
                                             Row(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(20.dp))
-                                                    .background(Color(0xFFF2F2F7)),
+                                                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 IconButton(
                                                     onClick = { viewModel.onAction(BillingAction.OnQuantityChange(item.product.id, item.quantity - 1)) },
                                                     modifier = Modifier.size(48.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Remove, contentDescription = "Decrease quantity", tint = Color.DarkGray)
+                                                    Icon(Icons.Default.Remove, contentDescription = "Decrease quantity", tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
-                                                Text(
-                                                    text = item.quantity.toString(),
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.Black,
-                                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                                )
+                                                androidx.compose.animation.AnimatedContent(targetState = item.quantity, label = "Quantity") { quantity ->
+                                                    Text(quantity.toString(), fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
+                                                }
                                                 IconButton(
                                                     onClick = { viewModel.onAction(BillingAction.OnQuantityChange(item.product.id, item.quantity + 1)) },
                                                     enabled = item.quantity < Int.MAX_VALUE,
                                                     modifier = Modifier.size(48.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Add, contentDescription = "Increase quantity", tint = Color.DarkGray)
+                                                    Icon(Icons.Default.Add, contentDescription = "Increase quantity", tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
                                             }
                                         }

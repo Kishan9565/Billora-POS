@@ -5,11 +5,12 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "shop_details")
 data class ShopEntity(
-    @PrimaryKey val id: Int = 0,
+    @PrimaryKey val id: String,
     val name: String,
     val addressLine1: String,
     val addressLine2: String,
     val phoneNumber: String,
     val upiId: String,
-    val footerText: String
+    val footerText: String,
+    val isActive: Boolean = false
 )

@@ -65,6 +65,7 @@ fun EditProductScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
+    var stock by rememberSaveable { mutableStateOf(product.stock.toString()) }
 
     var productName by rememberSaveable { mutableStateOf(product.name) }
     var price by rememberSaveable { mutableStateOf(java.lang.Double.toString(product.price)) }
@@ -84,17 +85,17 @@ fun EditProductScreen(
     }
 
     Scaffold(modifier = Modifier.imePadding(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Edit Product", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black) },
+                title = { Text("Edit Product", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         // Custom 32dp chevron back icon (1dp larger as required by spec)
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor, modifier = Modifier.size(32.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
@@ -122,7 +123,7 @@ fun EditProductScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(text = "BARCODE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = PrimaryColor.copy(alpha = 0.7f))
-                            Text(text = product.barcode, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = Color.Black)
+                            Text(text = product.barcode, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -142,8 +143,8 @@ fun EditProductScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                        unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
                         errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     ),
                     isError = nameError != null,
@@ -165,13 +166,13 @@ fun EditProductScreen(
                         priceError = null
                     },
                     placeholder = { Text("0.00", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) },
-                    prefix = { Text("₹ ", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.Black)) },
+                    prefix = { Text("₹ ", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                        unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface, unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
                         errorBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.error
                     ),
                     isError = priceError != null,
@@ -182,6 +183,13 @@ fun EditProductScreen(
                     Text(text = priceError ?: "", color = androidx.compose.material3.MaterialTheme.colorScheme.error, fontSize = 12.dp.value.sp, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
                 }
 
+                Spacer(Modifier.height(24.dp))
+                InputLabel(text = "Stock")
+                OutlinedTextField(value = stock, onValueChange = { stock = it },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = stock.toIntOrNull() == null || (stock.toIntOrNull() ?: -1) < 0,
+                    supportingText = { Text("Enter a non-negative whole number") })
                 Spacer(modifier = Modifier.height(100.dp))
             }
 
@@ -210,8 +218,8 @@ fun EditProductScreen(
                             hasError = true
                         }
 
-                        if (!hasError && parsedPrice != null) {
-                            val updatedProduct = product.copy(name = productName, price = parsedPrice)
+                        if (!hasError && parsedPrice != null && stock.toIntOrNull() != null && stock.toInt() >= 0) {
+                            val updatedProduct = product.copy(name = productName, price = parsedPrice, stock = stock.toInt())
                             viewModel.onAction(ProductAction.OnUpdateProduct(updatedProduct))
                         }
                     },

@@ -39,9 +39,10 @@ class PrinterRepositoryImpl(
         items: List<Triple<String, Double, Int>>,
         total: Double,
         footer: String,
-        timestamp: String
+        timestamp: String,
+        discountAmount: Double
     ): Boolean {
-        return withContext(Dispatchers.IO) { printerHelper.printReceipt(shopName, address1, address2, phone, items, total, footer, timestamp) }
+        return withContext(Dispatchers.IO) { printerHelper.printReceipt(shopName, address1, address2, phone, items, total, footer, timestamp, discountAmount) }
     }
 
     override suspend fun testPrint(shopName: String): Boolean = withContext(Dispatchers.IO) { printerHelper.testPrint(shopName) }

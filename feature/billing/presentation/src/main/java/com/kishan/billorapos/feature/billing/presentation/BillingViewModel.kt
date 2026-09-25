@@ -22,11 +22,18 @@ import com.kishan.billorapos.core.domain.totalAmount
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.kishan.billorapos.core.domain.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.Job
+import java.util.UUID
 
 class BillingViewModel(
     private val productRepository: ProductRepository,
     private val shopRepository: ShopRepository,
-    private val printerRepository: PrinterRepository
+    private val printerRepository: PrinterRepository,
+    private val salesRepository: SalesRepository,
+    private val customerRepository: CustomerRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BillingState())
@@ -34,13 +41,48 @@ class BillingViewModel(
 
     private val _eventChannel = Channel<BillingEvent>(Channel.BUFFERED)
     val events = _eventChannel.receiveAsFlow()
+    private val recordMutex = Mutex()
+    private var customerSearch: Job? = null
 
     init {
         onAction(BillingAction.LoadShopDetails)
     }
 
     fun onAction(action: BillingAction) {
+        val locked = _state.value.isPrinting || _state.value.isExporting || _state.value.saleRecorded
+        if (locked && (action is BillingAction.ApplyDiscount || action is BillingAction.PaymentMethod ||
+            action is BillingAction.SelectCustomer || action is BillingAction.AddCustomer)) return
+        if ((_state.value.isPrinting || _state.value.isExporting) && (action is BillingAction.OnClearCart ||
+            action is BillingAction.OnBarcodeDetected || action is BillingAction.OnQuantityChange || action is BillingAction.OnRemoveItem)) return
         when (action) {
+            is BillingAction.ApplyDiscount -> {
+                val value = action.value.toDoubleOrNull()
+                if (value == null || !value.isFinite() || value < 0) {
+                    _eventChannel.trySend(BillingEvent.ShowSnackbar("Enter a valid non-negative discount", true))
+                } else {
+                    val totals = checkoutTotals(_state.value.subtotal, value, action.percentage)
+                    _state.update { it.copy(discountAmount = totals.discountAmount, totalAmount = totals.totalAmount) }
+                }
+            }
+            is BillingAction.PaymentMethod -> if (action.method in listOf("CASH", "UPI", "CREDIT")) _state.update { it.copy(paymentMethod = action.method) }
+            is BillingAction.SelectCustomer -> _state.update { it.copy(customer = action.customer) }
+            is BillingAction.SearchCustomers -> {
+                _state.update { it.copy(customerQuery = action.query) }
+                customerSearch?.cancel()
+                customerSearch = viewModelScope.launch {
+                    try { customerRepository.search(action.query).collect { rows -> _state.update { it.copy(customers = rows) } } }
+                    catch (e: CancellationException) { throw e }
+                    catch (e: Exception) { _eventChannel.send(BillingEvent.ShowSnackbar("Unable to load customers", true)) }
+                }
+            }
+            is BillingAction.AddCustomer -> viewModelScope.launch {
+                try {
+                    val customer = Customer(UUID.randomUUID().toString(), action.name.trim(), action.phone.trim().takeIf { it.isNotBlank() })
+                    customerRepository.save(customer)
+                    _state.update { it.copy(customer = customer) }
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { _eventChannel.send(BillingEvent.ShowSnackbar(e.message ?: "Unable to save customer", true)) }
+            }
             is BillingAction.LoadShopDetails -> {
                 viewModelScope.launch {
                     when (val res = shopRepository.getShop()) {
@@ -110,18 +152,12 @@ class BillingViewModel(
                 _state.update { it.copy(isFlashOn = !it.isFlashOn) }
             }
             is BillingAction.OnClearCart -> {
-                _state.update {
-                    it.copy(
-                        cartItems = emptyList(),
-                        totalAmount = 0.0,
-                        totalQuantity = 0,
-                        printSuccess = false
-                    )
-                }
+                _state.update { BillingState(shopDetails = it.shopDetails, isCameraOn = it.isCameraOn) }
             }
             is BillingAction.PrintReceiptClick -> {
-                if (_state.value.isPrinting) return
+                if (_state.value.isPrinting || _state.value.isExporting) return
                 val receipt = _state.value
+                if (!validateReceipt(receipt)) return
                 _state.update { it.copy(isPrinting = true, printSuccess = false) }
                 viewModelScope.launch {
                     try {
@@ -160,10 +196,12 @@ class BillingViewModel(
                             items = itemsForPrinter,
                             total = receipt.totalAmount,
                             footer = shop.footerText,
-                            timestamp = nowStr
+                            timestamp = nowStr,
+                            discountAmount = receipt.discountAmount
                         )
 
                         if (printRes) {
+                            recordReceipt(receipt)
                             _state.update { it.copy(printSuccess = true) }
                             _eventChannel.send(BillingEvent.ShowSnackbar("Printed successfully"))
                         } else {
@@ -188,6 +226,56 @@ class BillingViewModel(
             _eventChannel.trySend(BillingEvent.ShowSnackbar("Amount or quantity is too large", isError = true))
             return current
         }
-        return current.copy(cartItems = items, totalAmount = total, totalQuantity = quantity.toInt())
+        val totals = checkoutTotals(total, if (current.saleRecorded) 0.0 else current.discountAmount)
+        return current.copy(cartItems = items, subtotal = totals.subtotal, discountAmount = totals.discountAmount,
+            totalAmount = totals.totalAmount, totalQuantity = quantity.toInt(), saleRecorded = false,
+            checkoutId = if (current.saleRecorded) UUID.randomUUID().toString() else current.checkoutId)
+    }
+
+    private fun validateReceipt(receipt: BillingState): Boolean {
+        val message = when {
+            receipt.cartItems.isEmpty() -> "Add items before completing a sale"
+            receipt.paymentMethod == "CREDIT" && receipt.customer == null -> "Select a customer for credit"
+            else -> null
+        }
+        if (message != null) _eventChannel.trySend(BillingEvent.ShowSnackbar(message, true))
+        return message == null
+    }
+
+    suspend fun recordReceipt(receipt: BillingState) = recordMutex.withLock {
+        if (_state.value.checkoutId == receipt.checkoutId && _state.value.saleRecorded) return@withLock
+        check(validateReceipt(receipt)) { "Checkout is incomplete" }
+        val credit = receipt.paymentMethod == "CREDIT"
+        val sale = Sale(receipt.checkoutId, System.currentTimeMillis(), receipt.subtotal, receipt.discountAmount,
+            receipt.totalAmount, receipt.totalQuantity, receipt.paymentMethod, receipt.customer?.id.takeIf { credit },
+            if (credit) 0.0 else receipt.totalAmount, !credit)
+        salesRepository.recordSale(sale, receipt.cartItems.map {
+            SaleLine(UUID.randomUUID().toString(), sale.id, it.product.id, it.product.name, it.quantity, it.product.price)
+        })
+        _state.update { if (it.checkoutId == receipt.checkoutId) it.copy(saleRecorded = true) else it }
+    }
+
+    fun exportPdf(context: android.content.Context, whatsapp: Boolean = false) {
+        if (_state.value.isPrinting || _state.value.isExporting) return
+        val receipt = _state.value
+        if (!validateReceipt(receipt)) return
+        _state.update { it.copy(isExporting = true) }
+        viewModelScope.launch {
+            try {
+                val shop = when (val result = shopRepository.getShop()) {
+                    is Result.Success -> result.data
+                    is Result.Error -> error("Unable to load shop")
+                }
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.kishan.billorapos.core.printer.ReceiptPdf.create(context, shop,
+                        receipt.cartItems.map { Triple(it.product.name, it.product.price, it.quantity) },
+                        receipt.totalAmount, SimpleDateFormat("dd-MM-yyyy hh:mm a", Locale.getDefault()).format(Date()), receipt.discountAmount)
+                }
+                recordReceipt(receipt)
+                com.kishan.billorapos.core.presentation.shareFile(context, file, "application/pdf", if (whatsapp) "com.whatsapp" else null)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _eventChannel.send(BillingEvent.ShowSnackbar(e.message ?: "Unable to export receipt", true)) }
+            finally { _state.update { it.copy(isExporting = false) } }
+        }
     }
 }

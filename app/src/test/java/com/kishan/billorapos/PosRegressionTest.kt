@@ -73,7 +73,7 @@ class PosRegressionTest {
         val dao = MemoryProductDao()
         val repository = ProductRepositoryImpl(dao)
         repository.addProduct(product())
-        val vm = ProductViewModel(repository)
+        val vm = ProductViewModel(repository, MemoryPreferences())
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
         vm.onAction(ProductAction.OnSearchQueryChange("hidden"))
         runCurrent()
@@ -87,7 +87,7 @@ class PosRegressionTest {
 
     @Test fun repeatedSaveIsIgnoredAndNonFinitePriceIsRejected() = runTest(dispatcher) {
         val dao = MemoryProductDao()
-        val vm = ProductViewModel(ProductRepositoryImpl(dao))
+        val vm = ProductViewModel(ProductRepositoryImpl(dao), MemoryPreferences())
         vm.onAction(ProductAction.OnAddProduct("A", "a", 2.0))
         vm.onAction(ProductAction.OnAddProduct("B", "b", 3.0))
         runCurrent()
@@ -99,7 +99,7 @@ class PosRegressionTest {
 
     @Test fun productObservationFailureIsVisibleAndRetryRecovers() = runTest(dispatcher) {
         val dao = MemoryProductDao().apply { failObservation = true }
-        val vm = ProductViewModel(ProductRepositoryImpl(dao))
+        val vm = ProductViewModel(ProductRepositoryImpl(dao), MemoryPreferences())
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect() }
         runCurrent()
         assertNotNull(vm.state.value.errorMessage)
@@ -111,22 +111,22 @@ class PosRegressionTest {
         assertFalse(vm.state.value.isLoading)
     }
 
-    @Test fun existingEditStockResetIsPreserved() = runTest(dispatcher) {
+    @Test fun editingPreservesExistingStock() = runTest(dispatcher) {
         val dao = MemoryProductDao()
         val repository = ProductRepositoryImpl(dao)
         repository.addProduct(product())
-        val vm = ProductViewModel(repository)
+        val vm = ProductViewModel(repository, MemoryPreferences())
         vm.onAction(ProductAction.OnUpdateProduct(product().copy(name = "Changed")))
         runCurrent()
         assertEquals("Changed", dao.rows.value.single().name)
-        assertEquals(0, dao.rows.value.single().stock)
+        assertEquals(7, dao.rows.value.single().stock)
     }
 
     @Test fun cartScanQuantityRemovalAndClearStayConsistent() = runTest(dispatcher) {
         val dao = MemoryProductDao()
         val repository = ProductRepositoryImpl(dao)
         repository.addProduct(product())
-        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter())
+        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter(), MemorySales(), MemoryCustomers())
         vm.onAction(BillingAction.OnBarcodeDetected("123"))
         vm.onAction(BillingAction.OnBarcodeDetected("123"))
         runCurrent()
@@ -146,7 +146,7 @@ class PosRegressionTest {
         val repository = ProductRepositoryImpl(MemoryProductDao())
         repository.addProduct(product())
         val printer = MemoryPrinter().apply { connectionGate = CompletableDeferred() }
-        val vm = BillingViewModel(repository, MemoryShop(), printer)
+        val vm = BillingViewModel(repository, MemoryShop(), printer, MemorySales(), MemoryCustomers())
         vm.onAction(BillingAction.OnBarcodeDetected("123"))
         runCurrent()
         vm.onAction(BillingAction.PrintReceiptClick)
@@ -162,10 +162,30 @@ class PosRegressionTest {
         assertFalse(vm.state.value.isPrinting)
     }
 
+    @Test fun printAndPdfCompletionRecordTheSameCheckoutOnlyOnce() = runTest(dispatcher) {
+        val repository = ProductRepositoryImpl(MemoryProductDao())
+        repository.addProduct(product(price = 100.0))
+        val sales = MemorySales()
+        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter(), sales, MemoryCustomers())
+        vm.onAction(BillingAction.OnBarcodeDetected("123"))
+        runCurrent()
+        vm.onAction(BillingAction.ApplyDiscount("10", true))
+        vm.onAction(BillingAction.PrintReceiptClick)
+        runCurrent()
+        vm.recordReceipt(vm.state.value)
+        assertEquals(1, sales.calls)
+        assertEquals(90.0, sales.rows.values.single().totalAmount, 0.0)
+        vm.onAction(BillingAction.OnClearCart)
+        vm.onAction(BillingAction.OnBarcodeDetected("123"))
+        runCurrent()
+        vm.recordReceipt(vm.state.value)
+        assertEquals(2, sales.rows.size)
+    }
+
     @Test fun overflowingAmountDoesNotCorruptTheCart() = runTest(dispatcher) {
         val repository = ProductRepositoryImpl(MemoryProductDao())
         repository.addProduct(product(price = Double.MAX_VALUE))
-        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter())
+        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter(), MemorySales(), MemoryCustomers())
         vm.onAction(BillingAction.OnBarcodeDetected("123"))
         runCurrent()
         vm.onAction(BillingAction.OnQuantityChange("p", 2))
@@ -177,7 +197,7 @@ class PosRegressionTest {
         val repository = ProductRepositoryImpl(MemoryProductDao())
         repository.addProduct(product(price = 0.0))
         repository.addProduct(product(id = "second", barcode = "456", price = 0.0))
-        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter())
+        val vm = BillingViewModel(repository, MemoryShop(), MemoryPrinter(), MemorySales(), MemoryCustomers())
         vm.onAction(BillingAction.OnBarcodeDetected("123"))
         runCurrent()
         vm.onAction(BillingAction.OnQuantityChange("p", Int.MAX_VALUE))
@@ -190,7 +210,7 @@ class PosRegressionTest {
 
     @Test fun failedPrintAlwaysReleasesSubmittingState() = runTest(dispatcher) {
         val printer = MemoryPrinter().apply { fail = true }
-        val vm = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), MemoryShop(), printer)
+        val vm = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), MemoryShop(), printer, MemorySales(), MemoryCustomers())
         runCurrent()
         vm.onAction(BillingAction.PrintReceiptClick)
         runCurrent()
@@ -202,7 +222,7 @@ class PosRegressionTest {
     @Test fun savedShopUpdatesViewModelAndReloadedBillingDetails() = runTest(dispatcher) {
         val shop = MemoryShop()
         val vm = ShopViewModel(shop)
-        val billing = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), shop, MemoryPrinter())
+        val billing = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), shop, MemoryPrinter(), MemorySales(), MemoryCustomers())
         runCurrent()
         vm.onAction(ShopAction.SaveShop("New", "Address", "", "123", "new@bank", "Thanks"))
         runCurrent()
@@ -234,7 +254,7 @@ class PosRegressionTest {
     }
 
     @Test fun unknownBarcodeOffersAddWithOriginalBarcode() = runTest(dispatcher) {
-        val vm = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), MemoryShop(), MemoryPrinter())
+        val vm = BillingViewModel(ProductRepositoryImpl(MemoryProductDao()), MemoryShop(), MemoryPrinter(), MemorySales(), MemoryCustomers())
         vm.onAction(BillingAction.OnBarcodeDetected("00123"))
         runCurrent()
         val event = vm.events.first() as BillingEvent.ShowSnackbar
@@ -299,6 +319,9 @@ private class MemoryProductDao : ProductDao {
 }
 
 private class MemoryShop : ShopRepository {
+    override fun profiles() = flowOf(listOf(shop))
+    override suspend fun selectShop(id: String) { }
+    override suspend fun addShop(shop: Shop) = updateShop(shop)
     var complete = false
     override suspend fun isSetupComplete() = complete
     override suspend fun completeSetup(shop: Shop): Result<Unit, DataError.Local> {
@@ -336,7 +359,7 @@ private class MemoryPrinter : PrinterRepository {
     override suspend fun clearPrinter() { savedPrinterMac.value = null; savedPrinterName.value = null }
     override suspend fun testPrint(shopName: String) = true
     override suspend fun printReceipt(shopName: String, address1: String, address2: String, phone: String,
-        items: List<Triple<String, Double, Int>>, total: Double, footer: String, timestamp: String): Boolean {
+        items: List<Triple<String, Double, Int>>, total: Double, footer: String, timestamp: String, discountAmount: Double): Boolean {
         prints++
         printedItems = items
         printedTotal = total

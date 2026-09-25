@@ -15,7 +15,7 @@ fun InputLabel(
 ) {
     Text(
         text = text,
-        color = Color(0xFF4C669A),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.bodyMedium,
         modifier = modifier.padding(start = 4.dp, bottom = 8.dp)
     )

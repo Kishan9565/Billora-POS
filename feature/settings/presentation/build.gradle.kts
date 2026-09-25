@@ -17,6 +17,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":feature:product:domain"))
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.kotlinx.coroutines.core)

@@ -89,7 +89,8 @@ class PrinterHelper(private val context: Context) {
         items: List<Triple<String, Double, Int>>, // Name, Price, Quantity
         total: Double,
         footer: String,
-        timestamp: String
+        timestamp: String,
+        discountAmount: Double = 0.0
     ): Boolean {
         if (!hasPermission()) { disconnect(); return false }
         val outSocket = socket ?: return false
@@ -145,6 +146,10 @@ class PrinterHelper(private val context: Context) {
             writeTextLine("--------------------------------")
             writeBytes(EscPos.ALIGN_RIGHT)
             writeBytes(EscPos.BOLD_ON)
+            if (discountAmount > 0) {
+                writeTextLine("Subtotal: ${com.kishan.billorapos.core.domain.checkoutTotals(com.kishan.billorapos.core.domain.totalAmount(items.map { it.second to it.third })).subtotal}")
+                writeTextLine("Discount: -$discountAmount")
+            }
             writeTextLine("TOTAL: $total")
             writeBytes(EscPos.BOLD_OFF)
             writeBytes(EscPos.LINE_FEED)

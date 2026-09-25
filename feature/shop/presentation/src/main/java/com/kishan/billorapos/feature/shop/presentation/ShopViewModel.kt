@@ -69,7 +69,7 @@ class ShopViewModel(
                         upiId = action.upiId,
                         footerText = action.footerText
                     )
-                    when (val result = if (action.completeSetup) shopRepository.completeSetup(updatedShop) else shopRepository.updateShop(updatedShop)) {
+                    when (val result = if (action.addNew) shopRepository.addShop(updatedShop) else if (action.completeSetup) shopRepository.completeSetup(updatedShop) else shopRepository.updateShop(updatedShop)) {
                         is Result.Success -> {
                             _state.update { it.copy(shop = updatedShop) }
                             _eventChannel.send(ShopEvent.SaveSuccess)

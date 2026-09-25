@@ -53,6 +53,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -75,6 +76,7 @@ fun ProductListScreen(
     onBarcodeConsumed: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val threshold by viewModel.lowStockThreshold.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -125,16 +127,16 @@ fun ProductListScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { com.kishan.billorapos.core.designsystem.BilloraSnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Product Management", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black) },
+                title = { Text("Product Management", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor, modifier = Modifier.size(28.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
@@ -194,9 +196,9 @@ fun ProductListScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = Color.LightGray,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
+                        unfocusedBorderColor = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
                     ),
                     singleLine = true
                 )
@@ -232,10 +234,9 @@ fun ProductListScreen(
                     }
                 }
             } else if (state.products.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    val txt = if (state.searchQuery.isNotEmpty()) "No products match your search." else "No products found. Add some!"
-                    Text(txt, textAlign = TextAlign.Center, fontSize = 16.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                com.kishan.billorapos.core.designsystem.EmptyState(Icons.Default.Search,
+                    if (state.searchQuery.isNotEmpty()) "No matching products" else "No products yet",
+                    if (state.searchQuery.isNotEmpty()) "Try another name or barcode." else "Add your first product to start selling.")
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -244,9 +245,9 @@ fun ProductListScreen(
                 ) {
                     items(state.products, key = { it.id }) { product ->
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().animateItem().shadow(2.dp, RoundedCornerShape(12.dp), ambientColor = PrimaryColor.copy(alpha = 0.15f), spotColor = PrimaryColor.copy(alpha = 0.15f)),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Row(
@@ -257,9 +258,10 @@ fun ProductListScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = product.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+                                    com.kishan.billorapos.core.designsystem.StockBadge(product.stock, threshold)
+                                    Text(text = product.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = "₹${"%.2f".format(product.price)}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "â‚¹${"%.2f".format(product.price)}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     IconButton(
