@@ -24,19 +24,13 @@ import com.kishan.billorapos.core.designsystem.icons.ChevronRight
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.WarningAmber
-import com.kishan.billorapos.core.designsystem.icons.Storefront
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -64,7 +58,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kishan.billorapos.core.designsystem.PrimaryColor
@@ -75,10 +68,6 @@ import com.kishan.billorapos.core.designsystem.BilloraBackground
 fun SettingsScreen(
     viewModel: PrinterViewModel,
     onNavigateBack: () -> Unit,
-    onNavigateToProducts: () -> Unit,
-    onNavigateToShopDetails: () -> Unit,
-    onNavigateToReports: () -> Unit,
-    onNavigateToKhata: () -> Unit,
     management: ManagementViewModel = org.koin.androidx.compose.koinViewModel()
 ) {
     val managementState by management.state.collectAsStateWithLifecycle()
@@ -148,24 +137,12 @@ fun SettingsScreen(
                         .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
                 ) {
                     SettingsRow(
-                        title = "Products",
-                        subtitle = if (managementState.lowStockCount > 0) "${managementState.lowStockCount} products need stock" else "Manage stock and barcodes",
-                        icon = Icons.Default.Inventory2,
-                        onClick = onNavigateToProducts
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-                    SettingsRow(
-                        title = "Shop Profile",
-                        subtitle = shopName,
-                        icon = Icons.Default.Storefront,
-                        onClick = onNavigateToShopDetails
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-                    SettingsRow("Reports", "Sales, revenue and top products", Icons.Default.BarChart, onNavigateToReports)
-                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-                    SettingsRow("Udhaar / Khata", "Customer balances and payments", Icons.Default.AccountBalanceWallet, onNavigateToKhata)
-                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-                    SettingsRow("Low-stock threshold", "Alert at ${managementState.threshold} or fewer", Icons.Default.WarningAmber) { thresholdInput = managementState.threshold.toString() }
+                        title = "Low-stock threshold",
+                        subtitle = "Alert at ${managementState.threshold} or fewer",
+                        icon = Icons.Default.WarningAmber
+                    ) {
+                        thresholdInput = managementState.threshold.toString()
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

@@ -214,19 +214,17 @@ fun BilloraBackground(
 ) {
     val isDark = isSystemInDarkTheme()
     Box(modifier = modifier.fillMaxSize()) {
-        // Base surface
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
 
-        // Soft diffused color blobs
         Box(
             Modifier
-                .size(320.dp)
-                .offset(x = (-80).dp, y = (-100).dp)
-                .blur(120.dp)
+                .size(420.dp)
+                .offset(x = (-120).dp, y = (-140).dp)
+                .blur(90.dp)
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            (if (isDark) PrimaryColor else PrimaryLight).copy(alpha = if (isDark) 0.25f else 0.35f),
+                            (if (isDark) PrimaryColor else PrimaryLight).copy(alpha = if (isDark) 0.45f else 0.55f),
                             Color.Transparent
                         )
                     ),
@@ -236,13 +234,13 @@ fun BilloraBackground(
         )
         Box(
             Modifier
-                .size(280.dp)
-                .offset(x = 60.dp, y = (-40).dp)
-                .blur(110.dp)
+                .size(360.dp)
+                .offset(x = 80.dp, y = (-60).dp)
+                .blur(85.dp)
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            (if (isDark) SecondaryColor else Color(0xFFFDE68A)).copy(alpha = if (isDark) 0.18f else 0.30f),
+                            (if (isDark) SecondaryColor else Color(0xFFFDE68A)).copy(alpha = if (isDark) 0.35f else 0.50f),
                             Color.Transparent
                         )
                     ),

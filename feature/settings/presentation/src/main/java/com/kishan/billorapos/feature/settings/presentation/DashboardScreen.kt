@@ -99,9 +99,7 @@ fun DashboardScreen(
                 )
 
                 FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
                     maxItemsInEachRow = 2,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -138,15 +136,18 @@ fun DashboardScreen(
                         modifier = Modifier.weight(1f),
                         onClick = onNavigateToShopDetails
                     )
-                    DashboardFeatureCard(
-                        title = "Printer",
-                        subtitle = if (state.printerConnected) "Connected" else "Not connected",
-                        icon = Icons.Default.Print,
-                        accentColor = if (state.printerConnected) SuccessColor else Slate400,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToPrinterSettings
-                    )
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                DashboardFeatureCard(
+                    title = "Printer",
+                    subtitle = if (state.printerConnected) "Connected" else "Not connected",
+                    icon = Icons.Default.Print,
+                    accentColor = if (state.printerConnected) SuccessColor else Slate400,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    onClick = onNavigateToPrinterSettings
+                )
 
                 Spacer(modifier = Modifier.height(32.dp))
             }

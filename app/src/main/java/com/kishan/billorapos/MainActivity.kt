@@ -159,11 +159,7 @@ fun AppNavigation() {
         composable<SettingsRoute> {
             SettingsScreen(
                 viewModel = printerViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToProducts = { navController.navigate(ProductListRoute) { launchSingleTop = true } },
-                onNavigateToShopDetails = { navController.navigate(ShopProfilesRoute) { launchSingleTop = true } },
-                onNavigateToReports = { navController.navigate(ReportsRoute) },
-                onNavigateToKhata = { navController.navigate(KhataRoute) }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
