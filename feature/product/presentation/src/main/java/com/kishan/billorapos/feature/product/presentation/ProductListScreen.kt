@@ -261,7 +261,7 @@ fun ProductListScreen(
                                     com.kishan.billorapos.core.designsystem.StockBadge(product.stock, threshold)
                                     Text(text = product.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = "â‚¹${"%.2f".format(product.price)}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(text = "\u20B9${"%.2f".format(product.price)}", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     IconButton(

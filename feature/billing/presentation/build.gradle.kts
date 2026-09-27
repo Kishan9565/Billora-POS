@@ -19,6 +19,7 @@ android {
 dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:domain"))
     implementation(project(":core:presentation"))

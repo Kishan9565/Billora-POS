@@ -18,6 +18,7 @@ import com.kishan.billorapos.feature.shop.domain.ShopRepository
 import com.kishan.billorapos.feature.shop.presentation.ShopViewModel
 import org.koin.android.ext.koin.androidContext
 import com.kishan.billorapos.feature.settings.presentation.ManagementViewModel
+import com.kishan.billorapos.feature.settings.presentation.DashboardViewModel
 import com.kishan.billorapos.feature.shop.presentation.ShopProfilesViewModel
 import org.koin.androidx.viewmodel.dsl.viewModelOf
 import org.koin.core.context.startKoin
@@ -63,6 +64,7 @@ class BilloraApp : Application() {
             viewModelOf(::PrinterViewModel)
             viewModelOf(::BillingViewModel)
             viewModelOf(::ManagementViewModel)
+            viewModelOf(::DashboardViewModel)
             viewModelOf(::ShopProfilesViewModel)
         }
 

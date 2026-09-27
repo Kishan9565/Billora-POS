@@ -164,8 +164,8 @@ fun CheckoutScreen(
             item(key = "options") { CheckoutOptions(state, viewModel::onAction) }
             item(key = "total") {
                 if (state.discountAmount > 0) {
-                    Text("Subtotal: ₹${"%.2f".format(state.subtotal)}")
-                    Text("Discount: -₹${"%.2f".format(state.discountAmount)}")
+                    Text("Subtotal: \u20B9${"%.2f".format(state.subtotal)}")
+                    Text("Discount: -\u20B9${"%.2f".format(state.discountAmount)}")
                 }
                 Row(Modifier.fillMaxWidth().background(com.kishan.billorapos.core.designsystem.BilloraGradients.Checkout, RoundedCornerShape(16.dp)).padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("GRAND TOTAL", modifier = Modifier.weight(1f), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
@@ -240,7 +240,7 @@ private fun CheckoutOptions(state: BillingState, action: (BillingAction) -> Unit
     }
     if (discountDialog) AlertDialog(onDismissRequest = { discountDialog = false }, title = { Text("Apply Discount") },
         text = { Column {
-            Row { FilterChip(!percent, { percent = false }, label = { Text("Flat ₹") }); Spacer(Modifier.width(8.dp)); FilterChip(percent, { percent = true }, label = { Text("Percent %") }) }
+            Row { FilterChip(!percent, { percent = false }, label = { Text("Flat \u20B9") }); Spacer(Modifier.width(8.dp)); FilterChip(percent, { percent = true }, label = { Text("Percent %") }) }
             OutlinedTextField(discount, { discount = it }, label = { Text(if (percent) "Percentage" else "Amount") },
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
         } }, confirmButton = { TextButton(onClick = { action(BillingAction.ApplyDiscount(discount, percent)); discountDialog = false }) { Text("Apply") } },

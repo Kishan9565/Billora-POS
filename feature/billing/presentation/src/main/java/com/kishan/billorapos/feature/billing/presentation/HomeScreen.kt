@@ -17,90 +17,54 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Add
-import com.kishan.billorapos.core.designsystem.icons.Remove
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import com.kishan.billorapos.core.designsystem.icons.FlashOff
 import com.kishan.billorapos.core.designsystem.icons.FlashOn
-import androidx.compose.material.icons.filled.Settings
+import com.kishan.billorapos.core.designsystem.icons.Remove
 import com.kishan.billorapos.core.designsystem.icons.Videocam
 import com.kishan.billorapos.core.designsystem.icons.VideocamOff
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import com.kishan.billorapos.core.presentation.ObserveEvents
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kishan.billorapos.core.designsystem.PrimaryButton
 import com.kishan.billorapos.core.designsystem.PrimaryColor
-import java.time.Instant
-import java.util.concurrent.Executors
+import com.kishan.billorapos.core.presentation.ObserveEvents
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: BillingViewModel,
+    onNavigateToDashboard: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToCheckout: () -> Unit,
     onAddUnknownProduct: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     var hasCameraPermission by remember {
@@ -126,20 +90,20 @@ fun HomeScreen(
     }
 
     ObserveEvents(viewModel.events) { event ->
-            when (event) {
-                is BillingEvent.ShowSnackbar -> {
-                    val result = snackbarHostState.showSnackbar(
-                        event.message,
-                        actionLabel = if (event.unknownBarcode != null) "Add" else null,
-                        duration = androidx.compose.material3.SnackbarDuration.Short
-                    )
-                    if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                        event.unknownBarcode?.let(onAddUnknownProduct)
-                    }
+        when (event) {
+            is BillingEvent.ShowSnackbar -> {
+                val result = snackbarHostState.showSnackbar(
+                    event.message,
+                    actionLabel = if (event.unknownBarcode != null) "Add" else null,
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    event.unknownBarcode?.let(onAddUnknownProduct)
                 }
-                is BillingEvent.NavigateToCheckout -> onNavigateToCheckout()
-                is BillingEvent.NavigateToSettings -> onNavigateToSettings()
             }
+            is BillingEvent.NavigateToCheckout -> onNavigateToCheckout()
+            is BillingEvent.NavigateToSettings -> onNavigateToSettings()
+        }
     }
 
     val cooldownMap = remember { mutableMapOf<String, Long>() }
@@ -224,7 +188,7 @@ fun HomeScreen(
                         }
                     }
                 } else {
-                    // Camera off state panel #1E293B
+                    // Camera off state panel
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -268,12 +232,22 @@ fun HomeScreen(
                     }
                 }
 
-                // Top right control buttons overlay
+
                 Column(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 16.dp, end = 16.dp)
                 ) {
+                    IconButton(
+                        onClick = onNavigateToDashboard,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.Black.copy(alpha = 0.45f), CircleShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
+                    ) {
+                        Icon(imageVector = Icons.Default.Dashboard, contentDescription = "Dashboard", tint = Color.White)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                     IconButton(
                         onClick = onNavigateToSettings,
                         modifier = Modifier
@@ -316,7 +290,7 @@ fun HomeScreen(
                 }
             }
 
-            // Bottom panel sheet overlapping by 24dp
+
             val panelTopOffset = scannerHeight - 24.dp
             Box(
                 modifier = Modifier
@@ -330,10 +304,10 @@ fun HomeScreen(
                         ambientColor = Color.Black.copy(alpha = 0.26f),
                         spotColor = Color.Black.copy(alpha = 0.26f)
                     )
-                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Drag handle
+
                     Box(
                         modifier = Modifier
                             .padding(vertical = 12.dp)
@@ -342,7 +316,7 @@ fun HomeScreen(
                             .align(Alignment.CenterHorizontally)
                     )
 
-                    // Header row
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -351,21 +325,21 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = "Scanned Items", fontSize = 18.sp, fontWeight = FontWeight.W600, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
-                            Text(text = "${state.totalQuantity} items total", fontSize = 12.sp, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(text = "Scanned Items", fontSize = 18.sp, fontWeight = FontWeight.W600, color = MaterialTheme.colorScheme.onSurface)
+                            Text(text = "${state.totalQuantity} items total", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text(text = "TOTAL PRICE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.2.sp)
-                            Text(text = "â‚¹${"%.2f".format(state.totalAmount)}", fontSize = 20.sp, fontWeight = FontWeight.Black, color = PrimaryColor)
+                            Text(text = "TOTAL PRICE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 1.2.sp)
+                            Text(text = "\u20B9${"%.2f".format(state.totalAmount)}", fontSize = 20.sp, fontWeight = FontWeight.Black, color = PrimaryColor)
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.fillMaxWidth(), color = androidx.compose.material3.MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                    // Cart List
+
                     Box(modifier = Modifier.weight(1f)) {
                         if (state.cartItems.isEmpty()) {
-                            com.kishan.billorapos.core.designsystem.EmptyState(Icons.Default.Add,
+                            com.kishan.billorapos.core.designsystem.EmptyState(Icons.Default.ShoppingCart,
                                 "Your cart is empty", "Scan a product to start a sale.")
                         } else {
                             LazyColumn(
@@ -375,9 +349,9 @@ fun HomeScreen(
                             ) {
                                 items(state.cartItems, key = { it.product.id }) { item ->
                                     Card(
-                                        modifier = Modifier.fillMaxWidth().animateItem().shadow(2.dp, RoundedCornerShape(12.dp), ambientColor = PrimaryColor.copy(alpha = 0.15f), spotColor = PrimaryColor.copy(alpha = 0.15f)),
+                                        modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(12.dp), ambientColor = PrimaryColor.copy(alpha = 0.15f), spotColor = PrimaryColor.copy(alpha = 0.15f)),
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                                     ) {
                                         Row(
@@ -392,39 +366,37 @@ fun HomeScreen(
                                                     text = item.product.name,
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.W600,
-                                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+                                                    color = MaterialTheme.colorScheme.onSurface,
                                                     maxLines = 2,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
-                                                    text = "â‚¹${"%.2f".format(item.product.price)}",
+                                                    text = "\u20B9${"%.2f".format(item.product.price)}",
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                             Row(
                                                 modifier = Modifier
                                                     .clip(RoundedCornerShape(20.dp))
-                                                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant),
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 IconButton(
                                                     onClick = { viewModel.onAction(BillingAction.OnQuantityChange(item.product.id, item.quantity - 1)) },
                                                     modifier = Modifier.size(48.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Remove, contentDescription = "Decrease quantity", tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Icon(Icons.Default.Remove, contentDescription = "Decrease quantity", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
-                                                androidx.compose.animation.AnimatedContent(targetState = item.quantity, label = "Quantity") { quantity ->
-                                                    Text(quantity.toString(), fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
-                                                }
+                                                Text(item.quantity.toString(), fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
                                                 IconButton(
                                                     onClick = { viewModel.onAction(BillingAction.OnQuantityChange(item.product.id, item.quantity + 1)) },
                                                     enabled = item.quantity < Int.MAX_VALUE,
                                                     modifier = Modifier.size(48.dp)
                                                 ) {
-                                                    Icon(Icons.Default.Add, contentDescription = "Increase quantity", tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Icon(Icons.Default.Add, contentDescription = "Increase quantity", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
                                             }
                                         }
@@ -434,7 +406,7 @@ fun HomeScreen(
                         }
                     }
 
-                    // Pinned Review Order Button
+
                     PrimaryButton(
                         onPressed = if (state.cartItems.isEmpty()) null else { { onNavigateToCheckout() } },
                         label = "Review Order"

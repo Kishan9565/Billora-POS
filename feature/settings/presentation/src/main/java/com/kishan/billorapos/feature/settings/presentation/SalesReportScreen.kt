@@ -17,11 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kishan.billorapos.core.designsystem.*
 import com.kishan.billorapos.core.domain.*
 import com.kishan.billorapos.core.presentation.ObserveEvents
-import java.text.SimpleDateFormat
 import java.util.*
-
-internal fun money(value: Double) = "₹${String.format(Locale.getDefault(), "%.2f", value)}"
-internal fun date(value: Long) = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date(value))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,27 +70,6 @@ fun SalesReportScreen(viewModel: ManagementViewModel, onBack: () -> Unit) {
     }
     if (custom) CustomRangeDialog(onDismiss = { custom = false }) { start, end -> viewModel.onAction(ManagementAction.Range("Custom", start, end)); custom = false }
     state.detail?.let { SaleDetailDialog(it, state.lines) { viewModel.onAction(ManagementAction.CloseSale) } }
-}
-
-@Composable
-internal fun AmountRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, Modifier.weight(1f)); Spacer(Modifier.width(12.dp)); Text(value)
-    }
-}
-
-@Composable
-internal fun SaleDetailDialog(sale: Sale, lines: List<SaleLine>, onDismiss: () -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Sale detail") }, text = {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { Text(date(sale.timestamp)); Text(sale.paymentMethod) }
-            items(lines, key = { it.id }) { line ->
-                Text(line.productName, style = MaterialTheme.typography.titleSmall)
-                AmountRow("${line.quantity} × ${money(line.unitPrice)}", money(lineAmount(line.unitPrice, line.quantity).toDouble()))
-            }
-            item { HorizontalDivider(); AmountRow("Subtotal", money(sale.subtotal)); AmountRow("Discount", "−${money(sale.discountAmount)}"); AmountRow("Total", money(sale.totalAmount)) }
-        }
-    }, confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

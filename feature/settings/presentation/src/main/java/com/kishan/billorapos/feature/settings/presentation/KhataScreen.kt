@@ -68,7 +68,7 @@ fun KhataScreen(viewModel: ManagementViewModel, onBack: () -> Unit) {
         }
     }
     if (payment != null) AlertDialog(onDismissRequest = { payment = null }, title = { Text("Record Payment") },
-        text = { Column { Text("Applied to oldest unsettled sales first."); OutlinedTextField(payment.orEmpty(), { payment = it }, label = { Text("Amount ₹") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)) } },
+        text = { Column { Text("Applied to oldest unsettled sales first."); OutlinedTextField(payment.orEmpty(), { payment = it }, label = { Text("Amount \u20B9") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)) } },
         confirmButton = { TextButton(enabled = !state.busy, onClick = { viewModel.onAction(ManagementAction.Payment(payment.orEmpty())); payment = null }) { Text("Record") } },
         dismissButton = { TextButton(onClick = { payment = null }) { Text("Cancel") } })
     editing?.let { edit ->

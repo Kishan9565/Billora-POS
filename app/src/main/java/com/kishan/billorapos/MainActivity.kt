@@ -28,6 +28,7 @@ import com.kishan.billorapos.feature.product.presentation.EditProductScreen
 import com.kishan.billorapos.feature.product.presentation.ProductListScreen
 import com.kishan.billorapos.feature.product.presentation.ScannerScreen
 import com.kishan.billorapos.feature.settings.presentation.SettingsScreen
+import com.kishan.billorapos.feature.settings.presentation.DashboardScreen
 import com.kishan.billorapos.feature.shop.presentation.ShopDetailsScreen
 import kotlinx.serialization.Serializable
 import org.koin.androidx.compose.koinViewModel
@@ -38,6 +39,7 @@ import org.koin.androidx.compose.koinViewModel
 @Serializable object ScannerRoute
 @Serializable object CheckoutRoute
 @Serializable object SettingsRoute
+@Serializable object DashboardRoute
 @Serializable object ProductListRoute
 @Serializable object AddProductRoute
 @Serializable data class EditProductRoute(
@@ -70,9 +72,12 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val billingViewModel: com.kishan.billorapos.feature.billing.presentation.BillingViewModel = koinViewModel()
     val printerViewModel: com.kishan.billorapos.feature.settings.presentation.PrinterViewModel = koinViewModel()
+    val dashboardViewModel: com.kishan.billorapos.feature.settings.presentation.DashboardViewModel = koinViewModel()
 
     var scannerResultTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var scannedBarcode by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val shopName by printerViewModel.shopNameFlow.collectAsStateWithLifecycle()
 
     NavHost(navController = navController, startDestination = StartupRoute) {
         composable<StartupRoute> {
@@ -101,6 +106,7 @@ fun AppNavigation() {
         composable<HomeRoute> {
             HomeScreen(
                 viewModel = billingViewModel,
+                onNavigateToDashboard = { navController.navigate(DashboardRoute) { launchSingleTop = true } },
                 onNavigateToSettings = { navController.navigate(SettingsRoute) { launchSingleTop = true } },
                 onNavigateToCheckout = { navController.navigate(CheckoutRoute) { launchSingleTop = true } },
                 onAddUnknownProduct = { barcode ->
@@ -134,6 +140,19 @@ fun AppNavigation() {
                 onNavigateHomePop = {
                     navController.popBackStack(HomeRoute, inclusive = false)
                 }
+            )
+        }
+
+        composable<DashboardRoute> {
+            DashboardScreen(
+                viewModel = dashboardViewModel,
+                shopName = shopName,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProducts = { navController.navigate(ProductListRoute) { launchSingleTop = true } },
+                onNavigateToShopDetails = { navController.navigate(ShopProfilesRoute) { launchSingleTop = true } },
+                onNavigateToReports = { navController.navigate(ReportsRoute) },
+                onNavigateToKhata = { navController.navigate(KhataRoute) },
+                onNavigateToPrinterSettings = { navController.navigate(SettingsRoute) { launchSingleTop = true } }
             )
         }
 

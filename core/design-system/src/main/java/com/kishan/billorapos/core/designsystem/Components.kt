@@ -2,6 +2,7 @@ package com.kishan.billorapos.core.designsystem
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,16 +10,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.draw.shadow
 
 @Composable
 fun GradientStatusChip(
@@ -202,5 +204,53 @@ fun EmptyState(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
+    }
+}
+
+@Composable
+fun BilloraBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    Box(modifier = modifier.fillMaxSize()) {
+        // Base surface
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+
+        // Soft diffused color blobs
+        Box(
+            Modifier
+                .size(320.dp)
+                .offset(x = (-80).dp, y = (-100).dp)
+                .blur(120.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            (if (isDark) PrimaryColor else PrimaryLight).copy(alpha = if (isDark) 0.25f else 0.35f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+                .align(Alignment.TopStart)
+        )
+        Box(
+            Modifier
+                .size(280.dp)
+                .offset(x = 60.dp, y = (-40).dp)
+                .blur(110.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            (if (isDark) SecondaryColor else Color(0xFFFDE68A)).copy(alpha = if (isDark) 0.18f else 0.30f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+                .align(Alignment.TopEnd)
+        )
+
+        content()
     }
 }

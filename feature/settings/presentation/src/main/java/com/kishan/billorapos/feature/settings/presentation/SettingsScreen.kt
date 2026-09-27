@@ -24,6 +24,10 @@ import com.kishan.billorapos.core.designsystem.icons.ChevronRight
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.WarningAmber
 import com.kishan.billorapos.core.designsystem.icons.Storefront
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
@@ -64,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kishan.billorapos.core.designsystem.PrimaryColor
+import com.kishan.billorapos.core.designsystem.BilloraBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,82 +119,87 @@ fun SettingsScreen(
                         Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = PrimaryColor, modifier = Modifier.size(28.dp))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
-        }
+        },
+        containerColor = Color.Transparent
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Profile Header
-            ProfileHeader(shopName = shopName)
-            state.errorMessage?.let { message ->
-                Text(message, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp))
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            SectionHeader(title = "MANAGEMENT")
-            
+        BilloraBackground(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
             Column(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
             ) {
-                SettingsRow(
-                    title = "Products",
-                    subtitle = if (managementState.lowStockCount > 0) "${managementState.lowStockCount} products need stock" else "Manage stock and barcodes",
-                    icon = Icons.Default.Settings, // qr_code_scanner equivalent
-                    onClick = onNavigateToProducts
+                // Profile Header
+                ProfileHeader(shopName = shopName)
+                state.errorMessage?.let { message ->
+                    Text(message, color = androidx.compose.material3.MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp))
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                SectionHeader(title = "MANAGEMENT")
+                
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                        .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
+                ) {
+                    SettingsRow(
+                        title = "Products",
+                        subtitle = if (managementState.lowStockCount > 0) "${managementState.lowStockCount} products need stock" else "Manage stock and barcodes",
+                        icon = Icons.Default.Inventory2,
+                        onClick = onNavigateToProducts
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+                    SettingsRow(
+                        title = "Shop Profile",
+                        subtitle = shopName,
+                        icon = Icons.Default.Storefront,
+                        onClick = onNavigateToShopDetails
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+                    SettingsRow("Reports", "Sales, revenue and top products", Icons.Default.BarChart, onNavigateToReports)
+                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+                    SettingsRow("Udhaar / Khata", "Customer balances and payments", Icons.Default.AccountBalanceWallet, onNavigateToKhata)
+                    HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
+                    SettingsRow("Low-stock threshold", "Alert at ${managementState.threshold} or fewer", Icons.Default.WarningAmber) { thresholdInput = managementState.threshold.toString() }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                SectionHeader(title = "HARDWARE")
+
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                        .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
+                ) {
+                    PrintDeviceRow(
+                        state = state,
+                        onRefresh = printerAction,
+                        onOpenBluetoothSettings = {
+                            context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+                        }
+                    )
+                }
+
+                Text(
+                    text = "To connect a new device, tap on the Settings gear to pair in phone's Bluetooth settings, then return and hit Refresh.",
+                    fontSize = 11.sp,
+                    fontStyle = FontStyle.Italic,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
                 )
-                HorizontalDivider(modifier = Modifier.padding(start = 64.dp), color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant)
-                SettingsRow(
-                    title = "Shop Profile",
-                    subtitle = shopName,
-                    icon = Icons.Default.Storefront,
-                    onClick = onNavigateToShopDetails
-                )
-                SettingsRow("Reports", "Sales, revenue and top products", Icons.Default.Settings, onNavigateToReports)
-                SettingsRow("Udhaar / Khata", "Customer balances and payments", Icons.Default.Storefront, onNavigateToKhata)
-                SettingsRow("Low-stock threshold", "Alert at ${managementState.threshold} or fewer", Icons.Default.Settings) { thresholdInput = managementState.threshold.toString() }
+
+                if (state.savedPrinterName == null) com.kishan.billorapos.core.designsystem.EmptyState(
+                    Icons.Default.Settings, "No printer connected", "Pair a Bluetooth printer, then tap Refresh.", Modifier.height(280.dp))
+                Spacer(modifier = Modifier.height(48.dp))
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            SectionHeader(title = "HARDWARE")
-
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
-            ) {
-                PrintDeviceRow(
-                    state = state,
-                    onRefresh = printerAction,
-                    onOpenBluetoothSettings = {
-                        context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
-                    }
-                )
-            }
-
-            Text(
-                text = "To connect a new device, tap on the Settings gear to pair in phone's Bluetooth settings, then return and hit Refresh.",
-                fontSize = 11.sp,
-                fontStyle = FontStyle.Italic,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-            )
-
-            if (state.savedPrinterName == null) com.kishan.billorapos.core.designsystem.EmptyState(
-                Icons.Default.Settings, "No printer connected", "Pair a Bluetooth printer, then tap Refresh.", Modifier.height(280.dp))
-            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 }
